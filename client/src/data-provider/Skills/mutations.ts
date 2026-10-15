@@ -22,6 +22,7 @@ import type {
   DeleteSkillFileOptions,
 } from 'librechat-data-provider';
 import type { InfiniteData, QueryKey, UseMutationResult } from '@tanstack/react-query';
+import { pendo } from '~/lib/pendo';
 
 function isInfiniteSkillData(
   data: TSkillListResponse | InfiniteData<TSkillListResponse>,
@@ -118,16 +119,27 @@ function removeSkillFromCachedLists(
 /**
  * Create a new skill. On success, writes the new skill into both the detail and
  * list caches so any open listing UI updates immediately.
+ *
+ * FORK: `entryPoint` names the caller for the Pendo `skill_created` event.
  */
 export const useCreateSkillMutation = (
-  options?: CreateSkillOptions,
+  options?: CreateSkillOptions & { entryPoint?: 'page' | 'dialog' },
 ): UseMutationResult<TSkill, unknown, TCreateSkill> => {
   const queryClient = useQueryClient();
-  const { onSuccess, ...rest } = options ?? {};
+  const { onSuccess, entryPoint, ...rest } = options ?? {};
   return useMutation({
     mutationFn: (payload: TCreateSkill) => dataService.createSkill(payload),
     ...rest,
     onSuccess: async (skill, variables, context) => {
+      // FORK: Pendo track event. Lengths only, never the skill's text.
+      pendo.track('skill_created', {
+        entryPoint,
+        category: variables?.category,
+        bodyLength: variables?.body?.length,
+        descriptionLength: variables?.description?.length,
+        warningCount: skill?.warnings?.length ?? 0,
+        skillId: skill._id,
+      });
       /**
        * An infinite skill query may have captured its pre-create pages before
        * this mutation completed. Cancel it before the cache write so a late

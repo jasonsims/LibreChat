@@ -10,6 +10,7 @@ import {
 } from '@librechat/client';
 import { clearAllConversationStorage } from '~/utils';
 import { useLocalize, useNewConvo } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 export const ClearChats = () => {
   const localize = useLocalize();
@@ -22,6 +23,8 @@ export const ClearChats = () => {
       {},
       {
         onSuccess: () => {
+          // FORK: Pendo track event.
+          pendo.track('all_conversations_deleted', { source: 'settings_data_controls' });
           clearAllConversationStorage();
           newConversation();
         },

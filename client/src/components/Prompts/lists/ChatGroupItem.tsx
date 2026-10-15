@@ -39,7 +39,8 @@ function ChatGroupItem({
   const params = useParams();
   const { user } = useAuthContext();
   const { submitPrompt } = useSubmitMessage();
-  const recordUsage = useRecordPromptUsage();
+  // FORK: names this entry point in the Pendo `prompt_used` event.
+  const recordUsage = useRecordPromptUsage('sidebar');
   const { announcePolite } = useLiveAnnouncer();
 
   const { showToast } = useToastContext();

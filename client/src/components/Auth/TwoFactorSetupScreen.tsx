@@ -21,6 +21,7 @@ import {
 import { useAuthContext, useLocalize } from '~/hooks';
 import { ErrorMessage } from './ErrorMessage';
 import { isSafeRedirect } from '~/utils';
+import { pendo } from '~/lib/pendo';
 
 type SetupPhaseName = 'setup' | 'qr' | 'verify' | 'backup';
 
@@ -193,7 +194,16 @@ const TwoFactorSetupScreen: React.FC = React.memo(() => {
       finalizeSetup(
         { finalizationToken: token },
         {
-          onSuccess: ({ token: authToken, user }) => completeAuthentication(authToken, user),
+          onSuccess: ({ token: authToken, user }) => {
+            // FORK: Pendo track event for a required enrollment, before sign-in completes.
+            pendo.track('two_factor_enabled', {
+              enrollmentContext: 'login_required',
+              backupCodeCount: backupCodes.length,
+              backupCodesDownloaded: downloaded,
+              isTwoFactorRequired: true,
+            });
+            completeAuthentication(authToken, user);
+          },
           onError: (mutationError) => {
             if (!restartLoginWhenSpent(mutationError)) {
               setError(localize('com_auth_two_factor_setup_finalize_error'));
@@ -202,7 +212,14 @@ const TwoFactorSetupScreen: React.FC = React.memo(() => {
         },
       );
     },
-    [completeAuthentication, finalizeSetup, localize, restartLoginWhenSpent],
+    [
+      completeAuthentication,
+      finalizeSetup,
+      localize,
+      restartLoginWhenSpent,
+      backupCodes.length,
+      downloaded,
+    ],
   );
 
   const handleComplete = useCallback(() => {

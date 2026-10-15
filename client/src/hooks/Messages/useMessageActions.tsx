@@ -22,6 +22,7 @@ import { useAssistantsMapContext, useAgentsMapContext } from '~/Providers';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useGetAddedConvo } from '~/hooks/Chat';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 export type TMessageActions = Pick<
@@ -161,6 +162,19 @@ export default function useMessageActions(props: TMessageActions) {
 
       feedbackMutation.mutate(payload, {
         onSuccess: (data) => {
+          // FORK: Pendo track event. The comment's text is never sent, only whether there is one.
+          pendo.track('message_feedback_submitted', {
+            action: data.feedback ? 'submitted' : 'cleared',
+            rating: data.feedback?.rating,
+            tagKey: data.feedback?.tag,
+            hasComment: !!data.feedback?.text,
+            previousRating: feedback?.rating,
+            endpoint: conversation?.endpoint,
+            model: message?.model,
+            agent_id: agent?.id,
+            conversationId: data.conversationId,
+            messageId: data.messageId,
+          });
           if (!data.feedback) {
             setFeedback(undefined);
           } else {
@@ -177,7 +191,7 @@ export default function useMessageActions(props: TMessageActions) {
         },
       });
     },
-    [feedbackMutation],
+    [feedbackMutation, feedback?.rating, conversation?.endpoint, message?.model, agent?.id],
   );
 
   return {

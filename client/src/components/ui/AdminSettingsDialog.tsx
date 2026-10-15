@@ -1,4 +1,4 @@
-import { useId, useEffect, useState } from 'react';
+import { useId, useRef, useEffect, useState } from 'react';
 import * as Ariakit from '@ariakit/react';
 import { useForm, Controller } from 'react-hook-form';
 import { ChevronDown, ShieldEllipsis } from 'lucide-react';
@@ -20,6 +20,7 @@ import type { PermissionTypes } from 'librechat-data-provider';
 import type { Control } from 'react-hook-form';
 import type { TranslationKeys } from '~/hooks/useLocalize';
 import { useLocalize, useAuthContext, useRoleSelector } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 type FormValues = Record<Permissions, boolean>;
 
@@ -159,6 +160,29 @@ const AdminSettingsDialog: React.FC<AdminSettingsDialogProps> = ({
     reset(defaultValues);
   }, [isSelectedCustomRole, isCustomRoleLoading, isCustomRoleError, defaultValues, reset]);
 
+  /** FORK: the save awaiting its result, reported to Pendo once `isSuccess` turns true. */
+  const pendingSaveRef = useRef<{
+    roleName: string;
+    isCustomRole: boolean;
+    enabled: string[];
+    disabled: string[];
+  } | null>(null);
+  useEffect(() => {
+    const save = pendingSaveRef.current;
+    if (isSuccess !== true || save == null) {
+      return;
+    }
+    pendingSaveRef.current = null;
+    // FORK: Pendo track event.
+    pendo.track('role_permissions_updated', {
+      permissionType,
+      roleName: save.roleName,
+      isCustomRole: save.isCustomRole,
+      enabledPermissions: save.enabled,
+      disabledPermissions: save.disabled,
+    });
+  }, [isSuccess, permissionType]);
+
   if (isSuccess !== wasSuccessful) {
     setWasSuccessful(isSuccess);
     if (isSuccess === true && isDialogOpen) {
@@ -179,6 +203,17 @@ const AdminSettingsDialog: React.FC<AdminSettingsDialogProps> = ({
   };
 
   const onSubmit = (data: FormValues) => {
+    // FORK: what this save changes, for the Pendo event sent once it succeeds (see above).
+    const previous: Partial<Record<string, boolean>> = defaultValues ?? {};
+    const changed = permissions
+      .map(({ permission }) => permission)
+      .filter((permission) => data[permission] !== (previous[permission] ?? false));
+    pendingSaveRef.current = {
+      roleName: selectedRole,
+      isCustomRole: isSelectedCustomRole,
+      enabled: changed.filter((permission) => data[permission]),
+      disabled: changed.filter((permission) => !data[permission]),
+    };
     mutate({ roleName: selectedRole, updates: data });
   };
 

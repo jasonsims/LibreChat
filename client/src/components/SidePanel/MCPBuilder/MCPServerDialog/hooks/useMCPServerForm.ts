@@ -12,6 +12,7 @@ import { extractServerNameFromUrl, isValidUrl, normalizeUrl } from '../utils/url
 import { getMCPServerErrorMessage } from '../utils/error';
 import { getOAuthConfig } from '../utils/oauth';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 // Auth type enum
 export enum AuthTypeEnum {
@@ -225,6 +226,24 @@ export function useMCPServerForm({ server, onSuccess, onClose }: UseMCPServerFor
         ? await updateMutation.mutateAsync({ serverName: server.serverName, data: params })
         : await createMutation.mutateAsync(params);
 
+      // FORK: Pendo track events. Never the URL, API key or OAuth client secret.
+      const serverProperties = {
+        transportType: formData.type,
+        authType: formData.auth.auth_type,
+        apiKeySource:
+          formData.auth.auth_type === AuthTypeEnum.ServiceHttp
+            ? formData.auth.api_key_source || 'admin'
+            : undefined,
+        hasIcon: !!formData.icon,
+        hasDescription: !!formData.description,
+        serverName: result.serverName,
+      };
+      if (server) {
+        pendo.track('mcp_server_updated', serverProperties);
+      } else {
+        pendo.track('mcp_server_created', serverProperties);
+      }
+
       showToast({
         message: server
           ? localize('com_ui_mcp_server_updated')
@@ -265,6 +284,8 @@ export function useMCPServerForm({ server, onSuccess, onClose }: UseMCPServerFor
     setIsDeleting(true);
     try {
       await deleteMutation.mutateAsync(server.serverName);
+      // FORK: Pendo track event.
+      pendo.track('mcp_server_deleted', { serverName: server.serverName });
 
       showToast({
         message: localize('com_ui_mcp_server_deleted'),

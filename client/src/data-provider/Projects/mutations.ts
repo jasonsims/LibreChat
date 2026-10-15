@@ -13,6 +13,7 @@ import type {
 import type { QueryClient, UseMutationResult } from '@tanstack/react-query';
 import { enqueue, updateConvoInAllQueries, invalidateConversationLists } from '~/utils';
 import { getSessionPrincipal } from '~/utils/session';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 export const useCreateProjectMutation = (): UseMutationResult<
@@ -37,7 +38,18 @@ export const useUpdateProjectMutation = (): UseMutationResult<
 > => {
   const queryClient = useQueryClient();
   return useMutation((payload: TUpdateChatProjectRequest) => dataService.updateProject(payload), {
-    onSuccess: (project) => {
+    onSuccess: (project, payload) => {
+      // FORK: Pendo track event. Never the instructions' text, only their length.
+      pendo.track('project_updated', {
+        updatedFields: Object.keys(payload ?? {}).filter(
+          (key) => key !== 'projectId' && key !== 'contextRevision',
+        ),
+        hasInstructions: project.hasInstructions === true,
+        instructionsLength: payload?.instructions?.length,
+        fileCount: project.fileCount,
+        conversationCount: project.conversationCount,
+        projectId: project._id,
+      });
       queryClient.setQueryData([QueryKeys.project, project._id], project);
       queryClient.invalidateQueries([QueryKeys.projects]);
     },
@@ -66,6 +78,12 @@ export const useDeleteProjectMutation = (): UseMutationResult<
   );
   return useMutation((projectId: string) => dataService.deleteProject(projectId), {
     onSuccess: (_result, projectId) => {
+      // FORK: Pendo track event.
+      pendo.track('project_deleted', {
+        deletedCount: _result?.deletedCount,
+        unassignedConversationCount: _result?.modifiedCount,
+        projectId,
+      });
       clearActiveConversationProject(projectId);
       // Invalidate so an *active* project-detail observer refetches and settles into a
       // not-found state — consumers (e.g. ChatRoute) can then react to the deletion.
@@ -198,6 +216,16 @@ export const useAssignConversationToProjectMutation = (): UseMutationResult<
     },
     {
       onSuccess: (result) => {
+        // FORK: Pendo track event. One hook backs every assignment surface.
+        pendo.track('conversation_assigned_to_project', {
+          action:
+            (result.projectId == null && 'removed') ||
+            (result.previousProjectId != null && 'moved') ||
+            'added',
+          projectId: result.projectId,
+          previousProjectId: result.previousProjectId,
+          conversationId: result.conversation.conversationId,
+        });
         /* The conversation cache is written in the request itself, above. */
         if (result.conversation.conversationId) {
           updateActiveConversation(

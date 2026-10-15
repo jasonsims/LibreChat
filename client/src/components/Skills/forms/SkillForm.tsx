@@ -23,6 +23,7 @@ import SkillContentEditor from './SkillContentEditor';
 import CategorySelector from './CategorySelector';
 import DeleteSkill from '../dialogs/DeleteSkill';
 import { ShareSkill } from '../buttons';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 
 interface SkillFormValues {
@@ -91,6 +92,14 @@ export default function SkillForm({ skillId }: SkillFormProps) {
 
   const updateSkill = useUpdateSkillMutation({
     onSuccess: (updated) => {
+      // FORK: Pendo track event.
+      pendo.track('skill_updated', {
+        outcome: 'success',
+        version: updated?.version,
+        category: updated?.category,
+        warningCount: updated?.warnings?.length ?? 0,
+        skillId: updated?._id,
+      });
       showToast({
         status: updated.warnings && updated.warnings.length > 0 ? 'warning' : 'success',
         message: localize('com_ui_skill_updated'),
@@ -98,8 +107,13 @@ export default function SkillForm({ skillId }: SkillFormProps) {
       setWarnings(updated.warnings ?? null);
       reset(toValues(updated));
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, variables) => {
       const status = (error as { response?: { status?: number } })?.response?.status;
+      // FORK: Pendo track event.
+      pendo.track('skill_updated', {
+        outcome: status === 409 ? 'conflict' : 'error',
+        skillId: variables?.id,
+      });
       if (status === 409) {
         showToast({ status: 'warning', message: localize('com_ui_skill_update_conflict') });
         skillQuery.refetch();

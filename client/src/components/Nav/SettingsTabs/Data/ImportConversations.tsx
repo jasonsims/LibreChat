@@ -1,12 +1,24 @@
 import { useState, useRef, useCallback } from 'react';
 import { Import } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { TStartupConfig } from 'librechat-data-provider';
 import { Spinner, useToastContext, Label, Button } from '@librechat/client';
+import type { TStartupConfig } from 'librechat-data-provider';
 import { startupConfigKey, useUploadConversationsMutation } from '~/data-provider';
+import { pendo, toFileExtension } from '~/lib/pendo';
 import { NotificationSeverity } from '~/common';
 import { useLocalize } from '~/hooks';
 import { cn, logger } from '~/utils';
+
+/** FORK: Pendo `conversations_imported` track event; the file's size and extension, never its name. */
+function trackImport(outcome: string, file: unknown, errorType?: string, maxFileSize?: number) {
+  pendo.track('conversations_imported', {
+    outcome,
+    errorType,
+    fileSizeBytes: file instanceof File ? file.size : undefined,
+    fileExtension: file instanceof File ? toFileExtension(file.name) : undefined,
+    maxFileSize,
+  });
+}
 
 function ImportConversations() {
   const localize = useLocalize();
@@ -15,20 +27,31 @@ function ImportConversations() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleSuccess = useCallback(() => {
-    showToast({
-      message: localize('com_ui_import_conversation_success'),
-      status: NotificationSeverity.SUCCESS,
-    });
-    setIsUploading(false);
-  }, [localize, showToast]);
+  const handleSuccess = useCallback(
+    (_data?: unknown, formData?: FormData) => {
+      // FORK: Pendo track event.
+      trackImport('success', formData?.get('file'));
+      showToast({
+        message: localize('com_ui_import_conversation_success'),
+        status: NotificationSeverity.SUCCESS,
+      });
+      setIsUploading(false);
+    },
+    [localize, showToast],
+  );
 
   const handleError = useCallback(
-    (error: unknown) => {
+    (error: unknown, formData?: FormData) => {
       logger.error('Import error:', error);
       setIsUploading(false);
 
       const isUnsupportedType = error?.toString().includes('Unsupported import type');
+      // FORK: Pendo track event.
+      trackImport(
+        'error',
+        formData?.get('file'),
+        isUnsupportedType ? 'unsupported_type' : 'import_failed',
+      );
 
       showToast({
         message: localize(
@@ -54,6 +77,8 @@ function ImportConversations() {
         const startupConfig = queryClient.getQueryData<TStartupConfig>(startupConfigKey(true));
         const maxFileSize = startupConfig?.conversationImportMaxFileSize;
         if (maxFileSize && file.size > maxFileSize) {
+          // FORK: Pendo track event.
+          trackImport('rejected', file, 'file_too_large', maxFileSize);
           const size = (maxFileSize / (1024 * 1024)).toFixed(2);
           showToast({
             message: localize('com_error_files_upload_too_large', { 0: size }),

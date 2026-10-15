@@ -21,6 +21,7 @@ import type { TranslationKeys } from '~/hooks';
 import { useRequestEmailChangeMutation } from '~/data-provider';
 import { useAuthContext, useLocalize } from '~/hooks';
 import { getResponseErrorCode } from '~/utils';
+import { pendo } from '~/lib/pendo';
 
 const errorKeys: Partial<Record<EmailChangeErrorCode, TranslationKeys>> = {
   current_password_invalid: 'com_ui_email_change_error_password',
@@ -45,6 +46,8 @@ export default function ChangeEmail() {
   const [errorKey, setErrorKey] = useState<TranslationKeys>();
   const mutation = useRequestEmailChangeMutation({
     onSuccess: () => {
+      // FORK: Pendo track event. Never an email address.
+      pendo.track('email_change_requested', { outcome: 'success', requiresVerification: true });
       showToast({ message: localize('com_ui_email_change_verification_sent') });
       setIsOpen(false);
       setNewEmail('');
@@ -53,6 +56,8 @@ export default function ChangeEmail() {
     },
     onError: (error) => {
       const code = getResponseErrorCode<EmailChangeErrorCode>(error);
+      // FORK: Pendo track event.
+      pendo.track('email_change_requested', { outcome: 'error', errorCode: code });
       setErrorKey((code ? errorKeys[code] : undefined) ?? 'com_ui_email_change_error_unexpected');
     },
   });

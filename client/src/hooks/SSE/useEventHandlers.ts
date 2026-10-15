@@ -18,6 +18,7 @@ import type {
   TMessage,
   TConversation,
   TStartupConfig,
+  TResponseUsage,
   EventSubmission,
   ChatCreatedFrame,
   TMessageContentParts,
@@ -69,6 +70,7 @@ import useStepHandler from '~/hooks/SSE/useStepHandler';
 import { useApplyAgentTemplate } from '~/hooks/Agents';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { MESSAGE_UPDATE_INTERVAL } from '~/common';
+import { pendo, toErrorCode } from '~/lib/pendo';
 import { useLiveAnnouncer } from '~/Providers';
 import store from '~/store';
 
@@ -594,6 +596,13 @@ export default function useEventHandlers({
    *  would inherit a stale baseline. Navigation teardown deliberately does not
    *  clear it: a reattach to a still-live run keeps its original start. */
   const setSubmissionStart = useSetRecoilState(store.submissionStartFamily(runIndex));
+  /** FORK: reads the generation's start for Pendo's response time without subscribing to it. */
+  const getSubmissionStart = useRecoilCallback(
+    ({ snapshot }) =>
+      () =>
+        snapshot.getLoadable(store.submissionStartFamily(runIndex)).valueMaybe() ?? null,
+    [runIndex],
+  );
   const { mutate: reconcileCodeDecision } =
     useReconcileConversationCodeEnvironmentMutation(setConversation);
   const reconcileFailedCodeDecision = useCallback(
@@ -1057,6 +1066,8 @@ export default function useEventHandlers({
         isTemporary: _isTemporary = false,
       } = submission;
       const serverConversation = conversation as TConversation;
+      // FORK: read before it is cleared below, for Pendo's response time.
+      const submissionStart = getSubmissionStart();
       setSubmissionStart(null);
 
       try {
@@ -1185,6 +1196,42 @@ export default function useEventHandlers({
             navigate(`/c/${Constants.NEW_CONVO}`, { replace: true });
           }
           return;
+        }
+
+        // FORK: Pendo track events, once the final frame is being applied.
+        const usage = responseMessage?.metadata?.usage as Partial<TResponseUsage> | undefined;
+        pendo.track('chat_response_completed', {
+          outcome:
+            (data as Record<string, unknown>).aborted === true ||
+            responseMessage?.unfinished === true
+              ? 'aborted'
+              : 'completed',
+          endpoint: submissionConvo.endpoint,
+          model: responseMessage?.model,
+          agent_id: submissionConvo.agent_id,
+          isNewConversation: isNewConvo,
+          isRegenerate,
+          isTemporary: _isTemporary,
+          responseTimeMs: submissionStart != null ? Date.now() - submissionStart : undefined,
+          inputTokens: usage?.input,
+          outputTokens: usage?.output,
+          cacheReadTokens: usage?.cacheRead,
+          cost: usage?.cost,
+          attachmentCount: responseMessage?.attachments?.length ?? 0,
+          contentPartCount: responseMessage?.content?.length ?? 0,
+          conversationId: conversation.conversationId,
+        });
+        if (isNewConvo && conversation.conversationId && isAddedRequest !== true) {
+          pendo.track('conversation_created', {
+            conversationId: conversation.conversationId,
+            endpoint: serverConversation.endpoint,
+            model: serverConversation.model,
+            agent_id: serverConversation.agent_id,
+            spec: serverConversation.spec,
+            isTemporary: _isTemporary,
+            hasProject: !!conversation.chatProjectId,
+            isMultiConvo: submission.addedConvo != null,
+          });
         }
 
         /* Update messages; if assistants endpoint, client doesn't receive responseMessage */
@@ -1349,6 +1396,7 @@ export default function useEventHandlers({
       applyAgentTemplate,
       attachmentHandler,
       setSubmissionStart,
+      getSubmissionStart,
       restorePendingContext,
       reconcileFailedCodeDecision,
     ],
@@ -1364,6 +1412,21 @@ export default function useEventHandlers({
         submission,
         getMessages,
         isNewConversationRoute: paramId === Constants.NEW_CONVO,
+      });
+      // FORK: Pendo track event. A streamed turn keeps its error text in a content part.
+      pendo.track('chat_response_failed', {
+        errorType:
+          data == null
+            ? 'connection_error'
+            : toErrorCode(errorResponse.text || data.responseMessage?.text),
+        isConnectionError: data == null,
+        recovered: recover,
+        endpoint: submission.conversation?.endpoint,
+        model: submission.conversation?.model,
+        agent_id: submission.conversation?.agent_id,
+        isNewConversation: !submission.conversation?.conversationId,
+        isRegenerate: submission.isRegenerate === true,
+        conversationId,
       });
       const finalMessages = mergeErrorMessages({ ...submission, errorMessage: errorResponse });
       setMessages(finalMessages);

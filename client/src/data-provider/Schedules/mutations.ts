@@ -9,6 +9,7 @@ import type {
 } from 'librechat-data-provider';
 import type { UseMutationOptions } from '@tanstack/react-query';
 import { trackScheduledRun } from './admission';
+import { pendo } from '~/lib/pendo';
 
 export const useCreateScheduleMutation = (
   options?: UseMutationOptions<TSchedule, Error, TCreateSchedule>,
@@ -21,6 +22,19 @@ export const useCreateScheduleMutation = (
       ...options,
       onSuccess: (...args) => {
         queryClient.invalidateQueries([QueryKeys.schedules]);
+        // FORK: Pendo track event. `ScheduleDialog` is this hook's only caller; never the prompt.
+        const [schedule, payload] = args;
+        const cadence = payload?.cadence;
+        pendo.track('schedule_created', {
+          frequency: cadence?.frequency,
+          daysOfWeekCount: cadence?.frequency !== 'cron' ? cadence?.daysOfWeek?.length : undefined,
+          timezone: payload?.timezone,
+          hasProject: !!payload?.chatProjectId,
+          promptLength: payload?.prompt?.length,
+          fileCount: payload?.file_ids?.length ?? 0,
+          agent_id: payload?.agent_id,
+          scheduleId: schedule?.id,
+        });
         options?.onSuccess?.(...args);
       },
     },
@@ -39,6 +53,18 @@ export const useUpdateScheduleMutation = (
       ...options,
       onSuccess: (...args) => {
         queryClient.invalidateQueries([QueryKeys.schedules]);
+        // FORK: Pendo track event. Only `ScheduleCard`'s switch sends `enabled`; the dialog never does.
+        const [schedule, variables] = args;
+        const payload: TUpdateSchedule = variables?.payload ?? {};
+        pendo.track('schedule_updated', {
+          updateSource: 'enabled' in payload ? 'card_toggle' : 'dialog',
+          outcome: 'success',
+          updatedFields: Object.keys(payload).filter((key) => key !== 'expectedConfigRevision'),
+          cadenceChanged: payload.cadence != null,
+          frequency: schedule?.cadence?.frequency,
+          enabled: schedule?.enabled,
+          scheduleId: variables?.id,
+        });
         options?.onSuccess?.(...args);
       },
     },

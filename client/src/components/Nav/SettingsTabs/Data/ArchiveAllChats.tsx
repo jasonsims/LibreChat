@@ -18,6 +18,7 @@ import { isTemporaryConversation } from '~/utils';
 import useNewChat from '~/hooks/Chat/useNewChat';
 import { NotificationSeverity } from '~/common';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 type SubmittedConversation = Pick<
   TConversation,
@@ -49,10 +50,16 @@ export const ArchiveAllChats = () => {
   });
 
   const archiveAllMutation = useArchiveAllConversationsMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       const submittedConversation = submittedConversationRef.current;
       const currentConversation = getConversation();
       submittedConversationRef.current = null;
+      // FORK: Pendo track event.
+      pendo.track('all_conversations_archived', {
+        outcome: 'success',
+        archivedCount: data?.archivedCount,
+        activeChatClosed: isSubmittedChatStillActive(submittedConversation, currentConversation),
+      });
       if (isSubmittedChatStillActive(submittedConversation, currentConversation)) {
         startNewChat();
       }
@@ -63,6 +70,8 @@ export const ArchiveAllChats = () => {
       });
     },
     onError: async () => {
+      // FORK: Pendo track event.
+      pendo.track('all_conversations_archived', { outcome: 'error' });
       const submittedConversation = submittedConversationRef.current;
       const currentConversation = getConversation();
       submittedConversationRef.current = null;

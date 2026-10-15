@@ -6,6 +6,7 @@ import { useResetPasswordMutation } from 'librechat-data-provider/react-query';
 import type { TResetPassword } from 'librechat-data-provider';
 import type { TLoginLayoutContext } from '~/common';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 function ResetPassword() {
   const localize = useLocalize();
@@ -30,9 +31,13 @@ function ResetPassword() {
   const onSubmit = (data: TResetPassword) => {
     resetPassword.mutate(data, {
       onError: () => {
+        // FORK: Pendo track event.
+        pendo.track('password_reset_completed', { outcome: 'invalid_token' });
         setError('com_auth_error_invalid_reset_token');
       },
       onSuccess: () => {
+        // FORK: Pendo track event.
+        pendo.track('password_reset_completed', { outcome: 'success' });
         setHeaderText('com_auth_reset_password_success');
       },
     });

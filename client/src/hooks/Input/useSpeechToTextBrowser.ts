@@ -4,6 +4,7 @@ import { useToastContext } from '@librechat/client';
 import { useGetCustomConfigSpeechQuery } from 'librechat-data-provider/react-query';
 import SpeechRecognitionImport, { useSpeechRecognition } from 'react-speech-recognition';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 /** `abortListening` stays optional: it is not part of what makes a module a
@@ -81,6 +82,14 @@ const useSpeechToTextBrowser = (
     const takeId = activeTakeIdRef.current;
     setText(finalTranscript, takeId);
     lastTranscript.current = finalTranscript;
+    // FORK: Pendo track event, once per settled transcript (the guard above skips repeats).
+    pendo.track('voice_input_transcribed', {
+      sttEngine: 'browser',
+      outcome: 'success',
+      transcriptLength: finalTranscript.length,
+      autoSendEnabled: autoSendText > -1,
+      autoSendDelaySec: autoSendText,
+    });
     if (autoSendText > -1 && finalTranscript.length > 0) {
       timeoutRef.current = setTimeout(() => {
         onTranscriptionComplete(finalTranscript, takeId);

@@ -80,6 +80,7 @@ import { insertQueuedMessage } from '~/utils/queue';
 import { useSetFilesToDelete } from '~/hooks/Files';
 import { useFileMapContext } from '~/Providers';
 import useLocalize from '~/hooks/useLocalize';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 export type { DuringRunAction };
@@ -1187,6 +1188,18 @@ export default function useSteering({
         ...(options?.front && { priority: true }),
       };
       jotaiStore.set(queuedMessagesByConvoId(queueKey), (prev) => insertQueuedMessage(prev, item));
+      if (options?.id == null) {
+        // FORK: Pendo track event. A caller passing an `id` is restoring an existing item.
+        pendo.track('chat_followup_queued', {
+          priority: item.priority === true,
+          serverOwned,
+          fileCount: item.files?.length ?? 0,
+          quoteCount: item.quotes?.length ?? 0,
+          manualSkillCount: item.manualSkills?.length ?? 0,
+          queueLength: jotaiStore.get(queuedMessagesByConvoId(queueKey)).length,
+          conversationId,
+        });
+      }
       if (options?.skipUsageMark !== true) {
         markQueuedFilesUsage(options?.files);
       }
@@ -1935,6 +1948,18 @@ export default function useSteering({
           },
           {
             onSuccess: (response) => {
+              // FORK: Pendo track event, once the server has queued the steer.
+              pendo.track('steer_message_sent', {
+                source: opts?.queuedOrigin ? 'queued_item' : 'composer',
+                preemptRequested: preempt,
+                preemptAccepted: response?.preempt === true,
+                queuePosition: response?.position,
+                fileCount: files?.length ?? 0,
+                quoteCount: carried.quotes?.length ?? 0,
+                quotesAccepted:
+                  carried.quotes != null ? response?.quotesAccepted === true : undefined,
+                conversationId,
+              });
               try {
                 const acceptResponse = () => {
                   /** A 202 without the echo means a pre-quotes replica queued

@@ -64,7 +64,8 @@ function PromptsCommand({
 }) {
   const localize = useLocalize();
   const remScale = useRemScale();
-  const { mutate: recordUsage } = useRecordPromptUsage();
+  // FORK: names this entry point in the Pendo `prompt_used` event.
+  const { mutate: recordUsage } = useRecordPromptUsage('slash_command');
   const promptGroupsContext = usePromptGroupsContext();
   const { allPromptGroups, hasAccess, requestAllPromptGroups } = promptGroupsContext ?? {};
   const { data, isLoading } = allPromptGroups ?? {};

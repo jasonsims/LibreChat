@@ -5,6 +5,7 @@ import type { TAgentApiKeyCreateResponse } from 'librechat-data-provider';
 import type { FormEvent } from 'react';
 import { computeExpiresAt, formatDate, DEFAULT_EXPIRY, EXPIRY_OPTIONS } from './utils';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 type CreateProps = {
   onCreated: (result: TAgentApiKeyCreateResponse) => void;
@@ -37,6 +38,12 @@ export default function Create({ onCreated, onCancel }: CreateProps) {
         name: name.trim(),
         expiresAt: computeExpiresAt(expiry),
       });
+      // FORK: Pendo track event. Never the generated key.
+      pendo.track('agent_api_key_created', {
+        expiryOption: expiry,
+        hasExpiration: computeExpiresAt(expiry) != null,
+        nameLength: name.trim().length,
+      });
       onCreated(result);
     } catch {
       showToast({ message: localize('com_ui_api_key_create_error'), status: 'error' });
@@ -63,7 +70,7 @@ export default function Create({ onCreated, onCancel }: CreateProps) {
           placeholder={localize('com_ui_api_key_name_placeholder')}
         />
         {nameError && (
-          <p id="api-key-name-error" role="alert" className="text-xs text-text-destructive">
+          <p id="api-key-name-error" role="alert" className="text-text-destructive text-xs">
             {localize('com_ui_api_key_name_required')}
           </p>
         )}
@@ -80,7 +87,7 @@ export default function Create({ onCreated, onCancel }: CreateProps) {
             label: localize(labelKey),
           }))}
         />
-        <p className="text-xs text-text-secondary">
+        <p className="text-text-secondary text-xs">
           {expiresAt == null
             ? localize('com_ui_api_key_no_expiration')
             : localize('com_ui_api_key_expires_on', { 0: formatDate(expiresAt) })}

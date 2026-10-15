@@ -22,13 +22,21 @@ import { useDeleteUserMutation } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { LocalizeFunction } from '~/common';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 
 const DeleteAccount = ({ disabled = false }: { title?: string; disabled?: boolean }) => {
   const localize = useLocalize();
   const { user, logout } = useAuthContext();
   const { mutate: deleteUser, isLoading: isDeleting } = useDeleteUserMutation({
-    onSuccess: () => logout(),
+    onSuccess: () => {
+      // FORK: Pendo track event, before `logout` ends the session.
+      pendo.track('account_deleted', {
+        twoFactorVerified: needs2FA,
+        usedBackupCode: needs2FA && useBackup,
+      });
+      logout();
+    },
   });
 
   const [isDialogOpen, setDialogOpen] = useState<boolean>(false);

@@ -44,6 +44,7 @@ import { importWithRecovery } from '~/lib/assets/lazy';
 import { ephemeralAgentByConvoId } from '~/store';
 import useClientResize from './useClientResize';
 import useUpdateFiles from './useUpdateFiles';
+import { pendo } from '~/lib/pendo';
 
 type UseFileHandling = {
   fileSetter?: FileSetter;
@@ -274,6 +275,20 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
          * the attachment stays below `progress: 1` and the send button never
          * re-enables. Reconcile against the id we own. */
         const fileId = (body.get('file_id') as string | null) ?? data.temp_file_id;
+        // FORK: Pendo track event. Never the file's name or content.
+        pendo.track('file_uploaded', {
+          uploadTarget: (agent_id && 'agent') || (assistant_id && 'assistant') || 'message',
+          toolResource: body.get('tool_resource') as string | null,
+          fileType: data.type,
+          fileSizeBytes: data.bytes,
+          isImage: data.width != null && data.width > 0,
+          endpoint,
+          endpointType,
+          storageSource: data.source,
+          llmDeliveryPath: data.llmDeliveryPath,
+          embedded: data.embedded === true,
+          isTemporary,
+        });
         takeUploadRecovery(fileId)?.onSuccess?.(fileId);
         clearUploadTimer(fileId);
         if (agent_id) {
@@ -341,6 +356,17 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
         } else if (error?.response?.data?.message) {
           errorMessage = error.response.data.message;
         }
+        // FORK: Pendo track event. The server's message is a user-facing upload error.
+        const file = body.get('file');
+        pendo.track('file_upload_failed', {
+          wasCanceled: error?.code === 'ERR_CANCELED',
+          httpStatus: error?.response?.status,
+          errorMessage,
+          toolResource: tool_resource as string | null,
+          fileType: file instanceof File ? file.type : undefined,
+          endpoint,
+          endpointType,
+        });
         setError(errorMessage);
         uploadLifecycle?.onError?.(file_id);
       },

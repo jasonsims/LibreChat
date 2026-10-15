@@ -10,6 +10,7 @@ import {
 } from '@librechat/client';
 import { useDeleteSkillMutation } from '~/data-provider';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 // Memoed because it renders inside `SkillForm`'s header, which re-renders on
 // every keystroke via react-hook-form state updates. Props (`skillId`,
@@ -26,8 +27,10 @@ function DeleteSkill({ skillId, skillName, disabled, onDelete }: DeleteSkillProp
   const localize = useLocalize();
   const { showToast } = useToastContext();
   const deleteSkill = useDeleteSkillMutation({
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
       const cleanupComplete = response.cleanupComplete !== false;
+      // FORK: Pendo track event.
+      pendo.track('skill_deleted', { cleanupComplete, skillId: variables?.id });
       showToast({
         status: cleanupComplete ? 'success' : 'error',
         message: localize(cleanupComplete ? 'com_ui_skill_deleted' : 'com_ui_skill_delete_partial'),

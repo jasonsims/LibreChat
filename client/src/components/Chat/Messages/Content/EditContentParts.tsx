@@ -14,6 +14,7 @@ import { getPartText, isEditablePart, withPartText } from './editableParts';
 import { findRerunParent } from './rerunParent';
 import { useGetAddedConvo } from '~/hooks/Chat';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -190,13 +191,25 @@ export default function EditContentParts({
     }
 
     if (savedParts.length === changedParts.length) {
+      // FORK: Pendo track event.
+      pendo.track('message_edited', {
+        editAction: 'save',
+        isUserTurn: editedMessage?.isCreatedByUser === true,
+        editedPartCount: savedParts.length,
+        editedPartTypes: [...new Set(savedParts.map((part) => part.type))],
+        endpoint: conversation?.endpoint,
+        conversationId: conversation?.conversationId,
+        messageId,
+      });
       enterEdit(true);
     }
   }, [
     applySavedParts,
     changedParts,
     conversation?.conversationId,
+    conversation?.endpoint,
     drafts,
+    editedMessage?.isCreatedByUser,
     enterEdit,
     hasBlankEdit,
     isBusy,
@@ -308,6 +321,20 @@ export default function EditContentParts({
       return;
     }
 
+    // FORK: Pendo track event.
+    let editAction = 'resubmit';
+    if (editedMessage.isCreatedByUser !== true) {
+      editAction = regenerated ? 'rerun' : 'edit_rerun';
+    }
+    pendo.track('message_edited', {
+      editAction,
+      isUserTurn: editedMessage.isCreatedByUser === true,
+      editedPartCount: changedParts.length,
+      editedPartTypes: [...new Set(changedParts.map((part) => part.type))],
+      endpoint: conversation?.endpoint,
+      conversationId: editedMessage.conversationId,
+      messageId,
+    });
     if (!regenerated) {
       setSiblingIdx((siblingIdx ?? 0) - 1);
     }
@@ -315,6 +342,7 @@ export default function EditContentParts({
   }, [
     ask,
     changedParts,
+    conversation?.endpoint,
     drafts,
     editedMessage,
     editableParts,

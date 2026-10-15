@@ -13,6 +13,7 @@ import SearchMessage from '~/components/Chat/Messages/SearchMessage';
 import { useMessagesInfiniteQuery } from '~/data-provider';
 import { useFileMapContext } from '~/Providers';
 import { fontSizeAtom } from '~/store/fontSize';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -24,6 +25,10 @@ type MeasuredCellParent = {
 /** Fixed trailing spacer so the last result clears the bottom gradient/spinner
  *  overlay instead of sitting underneath it. */
 const FOOTER_HEIGHT = 64;
+
+/** FORK: the last query reported to Pendo. Module scope, so returning to the same results
+ *  (a remount, a refetch, another page) is not reported as a new search. */
+let lastTrackedSearchQuery: string | null = null;
 
 /** Virtualized row wrapper that reports its measured height back to the cache.
  *  A ResizeObserver on the content re-measures when a row later grows or shrinks
@@ -273,6 +278,21 @@ export default function Search() {
       showToast({ message: 'An error occurred during search', status: 'error' });
     }
   }, [isError, searchQuery, showToast]);
+
+  useEffect(() => {
+    if (!searchQuery || isLoading || isPreviousData || searchQuery === lastTrackedSearchQuery) {
+      return;
+    }
+    lastTrackedSearchQuery = searchQuery;
+    // FORK: Pendo track event, once the new query's first page has settled.
+    pendo.track('conversation_search_performed', {
+      resultsCount: messages.length,
+      hasMoreResults: hasNextPage === true,
+      isError,
+      queryLength: searchQuery.length,
+      query: searchQuery,
+    });
+  }, [searchQuery, isLoading, isPreviousData, isError, messages.length, hasNextPage]);
 
   const resultsCount = messages.length;
   const resultsAnnouncement = useMemo(() => {

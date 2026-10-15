@@ -26,6 +26,7 @@ import type * as t from 'librechat-data-provider';
 import type { ReactNode } from 'react';
 import {
   isSafeRedirect,
+  getResponseStatus,
   getPostLoginRedirect,
   clearPostLoginRedirect,
   persistRedirectToSession,
@@ -45,6 +46,7 @@ import { resetChatFilterSessionAtom } from '~/components/Conversations/chatFilte
 import { TAuthConfig, TUserContext, TAuthContext, TResError } from '~/common';
 import { resetFacetsAtom } from '~/components/Conversations/facets';
 import useTimeout from './useTimeout';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 const AuthContext = (import.meta.hot?.data?.__AuthContext ??
@@ -73,6 +75,27 @@ const getLoginErrorText = (error: TResError): string | undefined => {
   return code === ErrorTypes.AUTH_CROSS_ORIGIN || code === TWO_FACTOR_FEDERATED_LOGIN_BLOCKED_CODE
     ? code
     : error?.message;
+};
+
+/** FORK: a normalized Pendo `login_failed` reason. Never the submitted email. */
+const getLoginFailureReason = (error: TResError, status?: number): string => {
+  const data = error?.response?.data;
+  if (data?.code === ErrorTypes.AUTH_CROSS_ORIGIN) {
+    return 'cross_origin';
+  }
+  if (data?.code === TWO_FACTOR_FEDERATED_LOGIN_BLOCKED_CODE) {
+    return 'federated_two_factor_blocked';
+  }
+  if (status === 429) {
+    return 'rate_limited';
+  }
+  if (data?.message === 'Email does not exist.') {
+    return 'unknown_email';
+  }
+  if (data?.message === 'Incorrect password.') {
+    return 'incorrect_password';
+  }
+  return status == null ? 'network_error' : 'other';
 };
 
 const AuthContextProvider = ({
@@ -182,10 +205,26 @@ const AuthContextProvider = ({
       setError(undefined);
       const redirect =
         getPostLoginRedirect(new URLSearchParams(window.location.search)) ?? '/c/new';
+      // FORK: Pendo track event.
+      pendo.track('user_logged_in', {
+        authMethod: 'password',
+        secondFactor: 'none',
+        role: user?.role,
+        twoFactorEnabled: user?.twoFactorEnabled === true,
+        hasRedirect: redirect !== '/c/new',
+      });
       setUserContext({ token, isAuthenticated: true, user, redirect });
     },
     onError: (error: TResError | unknown) => {
       clearTwoFactorSetupToken();
+      // FORK: Pendo track event.
+      const status = getResponseStatus(error);
+      pendo.track('login_failed', {
+        failureReason: getLoginFailureReason(error as TResError, status),
+        httpStatus: status,
+        errorCode: (error as TResError)?.response?.data?.code,
+        hasRedirect: new URLSearchParams(window.location.search).has('redirect_to'),
+      });
       doSetError(getLoginErrorText(error as TResError));
       // Preserve a valid redirect_to across login failures so the deep link survives retries.
       // Cannot use buildLoginRedirectUrl() here: it reads the current pathname (already /login)
@@ -200,6 +239,11 @@ const AuthContextProvider = ({
   });
   const { mutate: logoutMutate } = useLogoutUserMutation({
     onSuccess: (data) => {
+      // FORK: Pendo track event, before an IdP redirect unloads the page.
+      pendo.track('user_logged_out', {
+        idpRedirect: !!data.redirect,
+        customRedirect: logoutRedirectRef.current != null,
+      });
       if (data.redirect) {
         /** data.redirect is the IdP's end_session_endpoint URL: an absolute URL generated
          * server-side from trusted IdP metadata (not user input), so isSafeRedirect is bypassed.
@@ -250,6 +294,13 @@ const AuthContextProvider = ({
         getPostLoginRedirect(new URLSearchParams(window.location.search)) ?? '/c/new';
       /** The enrollment credential has done its job; do not leave it live in the tab. */
       clearTwoFactorSetupToken();
+      // FORK: Pendo track event. Only a required 2FA enrollment finishes sign-in here.
+      pendo.track('user_logged_in', {
+        secondFactor: 'enrollment',
+        role: authenticatedUser.role,
+        twoFactorEnabled: true,
+        hasRedirect: redirect !== '/c/new',
+      });
       setUser(authenticatedUser);
       setToken(authenticatedToken);
       setTokenHeader(authenticatedToken);

@@ -9,6 +9,7 @@ import { findRerunParent } from './rerunParent';
 import { useGetAddedConvo } from '~/hooks/Chat';
 import { useLocalize } from '~/hooks';
 import Container from './Container';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -95,6 +96,16 @@ const EditMessage = ({
       return;
     }
 
+    // FORK: Pendo track event.
+    pendo.track('message_edited', {
+      editAction: 'resubmit',
+      isUserTurn,
+      editedPartCount: isDirty ? 1 : 0,
+      editedPartTypes: isDirty ? ['text'] : [],
+      endpoint: conversation?.endpoint,
+      conversationId,
+      messageId,
+    });
     setSiblingIdx((siblingIdx ?? 0) - 1);
     enterEdit(true);
   };
@@ -134,6 +145,16 @@ const EditMessage = ({
       return;
     }
 
+    // FORK: Pendo track event.
+    pendo.track('message_edited', {
+      editAction: 'rerun',
+      isUserTurn,
+      editedPartCount: 0,
+      editedPartTypes: [],
+      endpoint: conversation?.endpoint,
+      conversationId,
+      messageId,
+    });
     /** The new answer is a sibling of this one, not of the user turn `siblingIdx` walks,
      *  so the index stays put and the thread follows the appended child. */
     enterEdit(true);
@@ -146,6 +167,17 @@ const EditMessage = ({
         conversationId: conversationId ?? '',
         model: conversation?.model ?? 'gpt-3.5-turbo',
         text: data.text,
+        messageId,
+      });
+
+      // FORK: Pendo track event.
+      pendo.track('message_edited', {
+        editAction: 'save',
+        isUserTurn,
+        editedPartCount: 1,
+        editedPartTypes: ['text'],
+        endpoint: conversation?.endpoint,
+        conversationId,
         messageId,
       });
 

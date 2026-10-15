@@ -11,6 +11,7 @@ import { isActiveVersion } from './isActiveVersion';
 import { useAgentPanelContext } from '~/Providers';
 import VersionContent from './VersionContent';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import { Panel } from '~/common';
 
 export default function VersionPanel() {
@@ -31,7 +32,13 @@ export default function VersionPanel() {
   } = useGetAgentVersionsQuery(selectedAgentId);
 
   const revertAgentVersion = useRevertAgentVersionMutation({
-    onSuccess: () => {
+    onSuccess: (revertedAgent, variables) => {
+      // FORK: Pendo track event.
+      pendo.track('agent_version_reverted', {
+        version_index: variables?.version_index,
+        newVersion: revertedAgent?.version,
+        agent_id: variables?.agent_id,
+      });
       showToast({
         message: localize('com_ui_agent_version_restore_success'),
         status: 'success',

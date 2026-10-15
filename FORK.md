@@ -68,8 +68,20 @@ Upstream's `.gitignore` ignores `/.claude/` and force-adds its skills. New files
 | ---------- | ---------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-10-15 | `FORK.md`, `.claude/rules/fork.md`             | New    | Fork docs and Claude Code rules.                                                                                                             |
 | 2026-10-15 | `.railway/railway.ts`, `.railway/package.json` | New    | Railway infrastructure as code: the app service and its MongoDB. `.dockerignore` already excludes dotfiles, so none of it reaches the image. |
+| 2026-10-15 | [Pendo Track Events](#pendo-track-events)      | Edits  | Pendo Track Events for the Pendo dev instances the personas generate data in: two new helper modules and marked call sites.                  |
 
 Upstream's `.nvmrc` (Node `24.16.0`, the current LTS line and the version the Dockerfile builds on) is used as is. Don't add a fork-specific one.
+
+## Pendo Track Events
+
+The client sends Pendo Track Events (`pendo.track`) for the product actions the personas exercise. The app does not load Pendo itself: when a deployment installs the Pendo snippet, `window.pendo` exists and the events flow; without it every call is a no-op.
+
+- `client/src/lib/pendo.ts` (new, tested by `client/src/lib/pendo.spec.ts`) lists every event name exactly as registered in Pendo (Pendo matches them verbatim, so never rename one) and wraps the agent: it never throws, drops unset properties, caps strings and trims trailing properties to Pendo's 512-byte limit, so call sites list their properties most important first.
+- `packages/data-provider/src/react-query/pendo.ts` (new) is the same guard for the two events sent from shared React Query hooks in `react-query-service.ts`, `tool_credentials_updated` and `endpoint_api_key_saved`.
+- Every other changed file is an upstream call site. Each call carries a `// FORK:` comment naming Pendo, so `grep -rln "FORK:" client/src packages/data-provider/src` lists the files and `grep -rn` the calls; the supporting edits (the `~/lib/pendo` import, callback parameters, hook dependency lists) sit next to them. `Nav/SettingsTabs/ApiKeys/Create.tsx` and `Nav/SettingsTabs/Data/ImportConversations.tsx` also carry the Tailwind class order and import order their formatters required once the files changed.
+- No event carries message or prompt text, file names, keys, tokens, email addresses or a share link's `shareId`.
+
+When a sync conflicts in one of those files, take upstream's version and re-apply the marked lines. A call that is dropped only loses its event.
 
 ## Deployment
 

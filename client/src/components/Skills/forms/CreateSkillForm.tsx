@@ -100,6 +100,8 @@ export default function CreateSkillForm({
         localize('com_ui_skill_create_error');
       showToast({ status: 'error', message });
     },
+    // FORK: names this entry point in the Pendo `skill_created` event.
+    entryPoint: 'page',
   });
 
   // `useCallback` would be a no-op here: `createSkill` is a React Query

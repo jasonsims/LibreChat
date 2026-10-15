@@ -14,6 +14,7 @@ import type {
 } from 'librechat-data-provider';
 import type { TranslationKeys } from '~/hooks';
 import { useGetFileConfig, useImportSkillMutation } from '~/data-provider';
+import { pendo, toFileExtension } from '~/lib/pendo';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 
@@ -85,6 +86,20 @@ function failureHeadingKey(code: ImportFailure['code']): TranslationKeys {
   return 'com_ui_skill_upload_failed_files';
 }
 
+/** FORK: Pendo `skill_imported` track event; the package's size and extension, never its name. */
+function trackSkillImport(
+  outcome: string,
+  file: unknown,
+  details: { skillId?: string; failureCode?: string; failedFileCount?: number },
+) {
+  pendo.track('skill_imported', {
+    outcome,
+    ...details,
+    fileExtension: file instanceof File ? toFileExtension(file.name) : undefined,
+    fileSizeBytes: file instanceof File ? file.size : undefined,
+  });
+}
+
 export default function UploadSkillDialog({ isOpen, setIsOpen }: UploadSkillDialogProps) {
   const localize = useLocalize();
   const navigate = useNavigate();
@@ -117,7 +132,9 @@ export default function UploadSkillDialog({ isOpen, setIsOpen }: UploadSkillDial
       : formatMegabytes(skillImportSizeLimit);
 
   const importMutation = useImportSkillMutation({
-    onSuccess: (skill) => {
+    onSuccess: (skill, formData) => {
+      // FORK: Pendo track event, even when the dialog closed mid-import.
+      trackSkillImport('success', formData?.get('file'), { skillId: skill?._id });
       if (requestSessionRef.current !== dialogSessionRef.current) {
         return;
       }
@@ -126,7 +143,15 @@ export default function UploadSkillDialog({ isOpen, setIsOpen }: UploadSkillDial
       setIsOpen(false);
       navigate(`/skills/${skill._id}`);
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, formData) => {
+      // FORK: Pendo track event, with the structured failure code when there is one.
+      const trackedFailure = getImportFailure(error);
+      trackSkillImport('error', formData?.get('file'), {
+        failureCode:
+          trackedFailure?.code ??
+          (error as { response?: { data?: { error?: string } } })?.response?.data?.error,
+        failedFileCount: trackedFailure?.files.length,
+      });
       if (requestSessionRef.current !== dialogSessionRef.current) {
         return;
       }
@@ -159,6 +184,8 @@ export default function UploadSkillDialog({ isOpen, setIsOpen }: UploadSkillDial
       }
       setFailure(null);
       if (file.size > skillImportSizeLimit) {
+        // FORK: Pendo track event.
+        trackSkillImport('rejected', file, { failureCode: 'file_too_large' });
         showToast({
           status: 'error',
           message: localize('com_ui_skill_upload_size_error', { 0: displayedSizeLimit }),

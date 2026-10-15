@@ -18,6 +18,7 @@ import {
   logger,
 } from '~/utils';
 import { useDefaultConvo } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 export default function useSelectMention({
@@ -96,6 +97,20 @@ export default function useSelectMention({
       }
 
       const isModular = isCurrentModular && isNewModular && shouldSwitch;
+      // FORK: Pendo track event. `returnHandlers` callers are the selector menus, not mentions.
+      pendo.track('model_selected', {
+        selectionType: 'spec',
+        source: returnHandlers ? 'menu' : 'mention',
+        spec: spec.name,
+        newEndpoint,
+        newModel: preset.model,
+        agent_id: preset.agent_id,
+        assistant_id: preset.assistant_id,
+        previousEndpoint: conversation?.endpoint,
+        previousModel: conversation?.model,
+        isExistingConversation,
+        switchedInPlace: isExistingConversation && isModular,
+      });
       if (isExistingConversation && isModular) {
         template.endpointType = newEndpointType as EModelEndpoint | undefined;
 
@@ -134,6 +149,7 @@ export default function useSelectMention({
       endpointsConfig,
       assistantsMap,
       routeChatProjectId,
+      returnHandlers,
     ],
   );
 
@@ -185,6 +201,23 @@ export default function useSelectMention({
       template.spec = null;
       template.iconURL = null;
       template.modelLabel = null;
+      // FORK: Pendo track event. `returnHandlers` callers are the selector menus, not mentions.
+      pendo.track('model_selected', {
+        selectionType:
+          (agent_id && 'agent') ||
+          (assistant_id && 'assistant') ||
+          (model && 'model') ||
+          'endpoint',
+        source: returnHandlers ? 'menu' : 'mention',
+        newEndpoint,
+        newModel: model || undefined,
+        agent_id: agent_id || undefined,
+        assistant_id: assistant_id || undefined,
+        previousEndpoint: conversation?.endpoint,
+        previousModel: conversation?.model,
+        isExistingConversation,
+        switchedInPlace: isExistingConversation && isCurrentModular && isNewModular && shouldSwitch,
+      });
       if (isExistingConversation && isCurrentModular && isNewModular && shouldSwitch) {
         template.endpointType = newEndpointType;
 
@@ -231,6 +264,7 @@ export default function useSelectMention({
       newConversation,
       endpointsConfig,
       routeChatProjectId,
+      returnHandlers,
     ],
   );
 
@@ -264,6 +298,19 @@ export default function useSelectMention({
       newPreset.modelLabel = newPreset.modelLabel ?? null;
       const isModular = isCurrentModular && isNewModular && shouldSwitch;
       const disableParams = newPreset.defaultPreset === true;
+      // FORK: Pendo track event. `returnHandlers` callers are the selector menus, not mentions.
+      pendo.track('model_selected', {
+        selectionType: 'preset',
+        source: returnHandlers ? 'menu' : 'mention',
+        newEndpoint,
+        newModel: newPreset.model,
+        agent_id: newPreset.agent_id,
+        assistant_id: newPreset.assistant_id,
+        previousEndpoint: conversation?.endpoint,
+        previousModel: conversation?.model,
+        isExistingConversation,
+        switchedInPlace: isExistingConversation && isModular,
+      });
       if (isExistingConversation && isModular) {
         template.endpointType = newEndpointType as EModelEndpoint | undefined;
         template.spec = null;
@@ -303,6 +350,7 @@ export default function useSelectMention({
       endpointsConfig,
       getDefaultConversation,
       routeChatProjectId,
+      returnHandlers,
     ],
   );
 

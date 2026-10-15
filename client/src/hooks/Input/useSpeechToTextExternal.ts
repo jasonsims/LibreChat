@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRecoilState } from 'recoil';
 import { useToastContext } from '@librechat/client';
 import { useSpeechToTextMutation } from '~/data-provider';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 export const getBestSupportedMimeType = (
@@ -133,6 +134,15 @@ const useSpeechToTextExternal = (
           }
           const extractedText = data.text;
           setText(extractedText, takeId);
+          // FORK: Pendo track event. The transcript's length only, never its text.
+          pendo.track('voice_input_transcribed', {
+            sttEngine: 'external',
+            outcome: 'success',
+            transcriptLength: extractedText.length,
+            autoSendEnabled: autoSendText > -1,
+            autoSendDelaySec: autoSendText,
+            audioMimeType: audioBlob.type,
+          });
           setIsRequestBeingMade(false);
           onTranscriptionSettled(takeId);
           if (autoSendText > -1 && speechToText && extractedText.length > 0) {
@@ -147,6 +157,12 @@ const useSpeechToTextExternal = (
           }
         },
         onError: () => {
+          // FORK: Pendo track event.
+          pendo.track('voice_input_transcribed', {
+            sttEngine: 'external',
+            outcome: 'error',
+            audioMimeType: audioBlob.type,
+          });
           showToast({
             message: 'An error occurred while processing the audio, maybe the audio was too short',
             status: 'error',

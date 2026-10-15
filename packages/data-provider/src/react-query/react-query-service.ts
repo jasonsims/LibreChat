@@ -14,6 +14,7 @@ import * as dataService from '../data-service';
 import * as m from '../types/mutations';
 import * as q from '../types/queries';
 import { QueryKeys } from '../keys';
+import { pendo } from './pendo';
 import * as s from '../schemas';
 import * as t from '../types';
 
@@ -121,6 +122,18 @@ export const useUpdateUserKeysMutation = (): UseMutationResult<
   const queryClient = useQueryClient();
   return useMutation((payload: t.TUpdateUserKeyRequest) => dataService.updateUserKey(payload), {
     onSuccess: (data, variables) => {
+      // FORK: Pendo track event, once the server has saved the key. Never the key's value.
+      const expiresAtMs = variables.expiresAt ? Date.parse(variables.expiresAt) : NaN;
+      pendo.track('endpoint_api_key_saved', {
+        neverExpires: !variables.expiresAt,
+        expiresInMinutes: Number.isNaN(expiresAtMs)
+          ? undefined
+          : Math.round((expiresAtMs - Date.now()) / 60000),
+        endpointType: queryClient.getQueryData<t.TEndpointsConfig>([QueryKeys.endpoints])?.[
+          variables.name
+        ]?.type,
+        endpoint: variables.name,
+      });
       queryClient.invalidateQueries([QueryKeys.name, variables.name]);
       queryClient.invalidateQueries([QueryKeys.models]);
       /** token-config is derived from the same per-user model fetch */
@@ -325,6 +338,14 @@ export const useUpdateUserPluginsMutation = (
   return useMutation((payload: t.TUpdateUserPlugins) => dataService.updateUserPlugins(payload), {
     ...options,
     onSuccess: (...args) => {
+      // FORK: Pendo track event. Field counts only, never credential values.
+      pendo.track('tool_credentials_updated', {
+        action: args[1]?.action,
+        isMCPServer: args[1]?.pluginKey?.startsWith(Constants.mcp_prefix),
+        isEntityTool: args[1]?.isEntityTool === true,
+        authFieldCount: Object.keys(args[1]?.auth ?? {}).length,
+        pluginKey: args[1]?.pluginKey,
+      });
       queryClient.invalidateQueries([QueryKeys.user]);
       onSuccess?.(...args);
       if (args[1]?.action === 'uninstall' && args[1]?.pluginKey?.startsWith(Constants.mcp_prefix)) {

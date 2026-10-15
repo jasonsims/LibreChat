@@ -17,7 +17,8 @@ interface PromptActionsProps {
 const PromptActions = ({ group, mainText, onUsePrompt }: PromptActionsProps) => {
   const localize = useLocalize();
   const { submitPrompt } = useSubmitMessage();
-  const { mutate: recordUsage } = useRecordPromptUsage();
+  // FORK: names this entry point in the Pendo `prompt_used` event.
+  const { mutate: recordUsage } = useRecordPromptUsage('prompt_detail');
   const [showVariableDialog, setShowVariableDialog] = useState(false);
 
   const hasVariables = useMemo(

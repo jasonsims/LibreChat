@@ -38,6 +38,7 @@ import AppChatSurface from '../Chat/Surface';
 import { ShareContext } from '~/Providers';
 import MessagesView from './MessagesView';
 import Footer from '../Chat/Footer';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 /** Root sibling-index key used by the shared MessagesView/MultiMessage tree. */
@@ -68,11 +69,24 @@ function SharedView() {
   const [langcode, setLangcode] = useRecoilState(store.lang);
 
   const forkShare = useForkSharedConvoMutation({
-    onSuccess: (forkData) => {
+    onSuccess: (forkData, variables) => {
+      // FORK: Pendo track event. No `shareId`: it is the public link's bearer token.
+      pendo.track('shared_conversation_forked', {
+        outcome: 'success',
+        targetMessageIndex: variables?.targetMessageIndex,
+        messageCount: forkData?.messages?.length ?? 0,
+        newConversationId: forkData.conversation.conversationId,
+      });
       navigate(`/c/${forkData.conversation.conversationId}`);
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       const status = getResponseStatus(error);
+      // FORK: Pendo track event: 409 is a republished share, 401 a login redirect.
+      pendo.track('shared_conversation_forked', {
+        outcome: 'error',
+        httpStatus: status,
+        targetMessageIndex: variables?.targetMessageIndex,
+      });
       /** A 401 means the viewer isn't authenticated; the request interceptor
        *  routes them through login (with a redirect back to this share), so a
        *  generic error toast would be misleading noise before the redirect. */

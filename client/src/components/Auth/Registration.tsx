@@ -10,6 +10,7 @@ import type { TLoginLayoutContext } from '~/common';
 import { useLocalize, TranslationKeys } from '~/hooks';
 import { ErrorMessage } from './ErrorMessage';
 import LegalConsent from './LegalConsent';
+import { pendo } from '~/lib/pendo';
 
 const Registration: React.FC = () => {
   const navigate = useNavigate();
@@ -50,6 +51,12 @@ const Registration: React.FC = () => {
       setIsSubmitting(true);
     },
     onSuccess: () => {
+      // FORK: Pendo track event. The API answers 200 for an existing email too, by design.
+      pendo.track('user_registered', {
+        hasInviteToken: !!token,
+        emailVerificationRequired: startupConfig?.emailEnabled === true,
+        captchaRequired: requireCaptcha,
+      });
       setIsSubmitting(false);
       setCountdown(3);
       const timer = setInterval(() => {

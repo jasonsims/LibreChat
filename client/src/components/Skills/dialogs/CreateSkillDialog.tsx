@@ -128,6 +128,8 @@ export default function CreateSkillDialog({
       }
       showToast({ status: 'error', message });
     },
+    // FORK: names this entry point in the Pendo `skill_created` event.
+    entryPoint: 'dialog',
   });
 
   const onSubmit = (data: FormValues) => {

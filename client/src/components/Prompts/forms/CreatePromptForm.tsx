@@ -13,8 +13,9 @@ import { usePromptGroupsContext } from '~/Providers';
 import { useLocalize, useHasAccess } from '~/hooks';
 import { useCreatePrompt } from '~/data-provider';
 import Description from '../fields/Description';
+import { cn, detectVariables } from '~/utils';
 import Command from '../fields/Command';
-import { cn } from '~/utils';
+import { pendo } from '~/lib/pendo';
 
 type CreateFormValues = {
   name: string;
@@ -81,8 +82,19 @@ const CreatePromptForm = ({
   } = methods;
 
   const createPromptMutation = useCreatePrompt({
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
       const groupId = response.prompt.groupId;
+      // FORK: Pendo track event. Never the prompt's text.
+      pendo.track('prompt_created', {
+        promptType: variables?.prompt.type,
+        category: variables?.group?.category,
+        hasCommand: !!variables?.group?.command,
+        hasOneliner: !!variables?.group?.oneliner,
+        hasVariables: detectVariables(variables?.prompt.prompt ?? ''),
+        promptLength: variables?.prompt.prompt.length,
+        isDialog,
+        promptGroupId: groupId,
+      });
       if (onSuccess && groupId) {
         onSuccess(groupId);
       } else {

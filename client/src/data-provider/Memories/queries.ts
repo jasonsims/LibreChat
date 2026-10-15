@@ -7,6 +7,7 @@ import type {
   QueryObserverResult,
 } from '@tanstack/react-query';
 import type { TUserMemory, MemoriesResponse, UpdateMemoryResponse } from 'librechat-data-provider';
+import { pendo } from '~/lib/pendo';
 
 export const useMemoriesQuery = (
   config?: UseQueryOptions<MemoriesResponse>,
@@ -92,6 +93,10 @@ export const useUpdateMemoryPreferencesMutation = (
     {
       ...options,
       onSuccess: (...params) => {
+        // FORK: Pendo track event. One hook backs the settings toggle and the panel switch.
+        pendo.track('memory_preference_changed', {
+          memoriesEnabled: params[0]?.preferences?.memories,
+        });
         queryClient.invalidateQueries([QueryKeys.user]);
         options?.onSuccess?.(...params);
       },

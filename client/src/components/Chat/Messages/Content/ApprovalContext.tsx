@@ -22,6 +22,7 @@ import { askSubmitStatusAtom } from '~/components/Chat/ask/state';
 import { resolveAskUserQuestionPart } from '~/utils/approval';
 import { ChatContext } from '~/Providers/ChatContext';
 import { useGetEphemeralAgent } from '~/store/agents';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 /** Shared read/write for the ask-answer submit status. */
@@ -477,10 +478,25 @@ export function useResumeSubmit() {
         return;
       }
       setStatus(actionId, 'submitting');
+      // FORK: Pendo track event properties, sent with the resume's outcome below.
+      const approvalProperties = {
+        decisionCount: decisions.length,
+        approvedCount: decisions.filter((d) => d.decision === 'approve').length,
+        rejectedCount: decisions.filter((d) => d.decision === 'reject').length,
+        editedCount: decisions.filter((d) => d.decision === 'edit').length,
+        respondedCount: decisions.filter((d) => d.decision === 'respond').length,
+        decisionScopes: [...new Set(decisions.map((d) => d.scope ?? 'once'))],
+        endpoint: fields.endpoint,
+        agent_id: fields.agent_id,
+        conversationId: fields.conversationId,
+        actionId,
+      };
       approvalMutation.mutate(
         { ...fields, actionId, decisions },
         {
           onSuccess: () => {
+            // FORK: Pendo track event.
+            pendo.track('tool_approval_submitted', { outcome: 'submitted', ...approvalProperties });
             setStatus(actionId, 'submitted');
             const pendingAtom = pendingApprovalActionFamily(fields.conversationId);
             if (jotaiStore.get(pendingAtom)?.actionId === actionId) {
@@ -489,6 +505,11 @@ export function useResumeSubmit() {
           },
           onError: (error) => {
             const expired = isExpiredError(error);
+            // FORK: Pendo track event.
+            pendo.track('tool_approval_submitted', {
+              outcome: expired ? 'expired' : 'error',
+              ...approvalProperties,
+            });
             if (!expired) {
               // Network/validation failures are retryable; a 409 is terminal.
               endToolSubmission(actionId);
@@ -527,6 +548,15 @@ export function useResumeSubmit() {
       }
       submittingAskActionIdsRef.current.add(actionId);
       setAskStatus(actionId, 'submitting');
+      // FORK: Pendo track event properties, sent with the resume's outcome below.
+      const answerProperties = {
+        isBatch,
+        questionCount: isBatch ? Object.keys(resolution).length : 1,
+        answerLength: isBatch ? Object.values(resolution).join('').length : resolution.length,
+        agent_id: fields.agent_id,
+        conversationId: fields.conversationId,
+        actionId,
+      };
       askMutation.mutate(
         {
           ...fields,
@@ -535,6 +565,8 @@ export function useResumeSubmit() {
         },
         {
           onSuccess: () => {
+            // FORK: Pendo track event.
+            pendo.track('agent_question_answered', { outcome: 'submitted', ...answerProperties });
             setAskStatus(actionId, 'submitted');
             /**
              * Drop the synthetic question part now that the run is resuming: the
@@ -568,6 +600,11 @@ export function useResumeSubmit() {
           },
           onError: (error) => {
             const expired = isExpiredError(error);
+            // FORK: Pendo track event.
+            pendo.track('agent_question_answered', {
+              outcome: expired ? 'expired' : 'error',
+              ...answerProperties,
+            });
             if (!expired) {
               submittingAskActionIdsRef.current.delete(actionId);
             }
