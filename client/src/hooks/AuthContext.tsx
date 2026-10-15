@@ -44,6 +44,7 @@ import {
 import { resetChatFilterSessionAtom } from '~/components/Conversations/chatFilters';
 import { TAuthConfig, TUserContext, TAuthContext, TResError } from '~/common';
 import { resetFacetsAtom } from '~/components/Conversations/facets';
+import { clearPendoSession } from '~/lib/pendo/agent';
 import useTimeout from './useTimeout';
 import store from '~/store';
 
@@ -236,6 +237,8 @@ const AuthContextProvider = ({
     (redirect?: string) => {
       clearPostLoginRedirect();
       clearTwoFactorSetupToken();
+      // FORK: a new anonymous Pendo visitor, so the next user is not tracked as this one.
+      clearPendoSession();
       if (redirect) {
         logoutRedirectRef.current = redirect;
       }
