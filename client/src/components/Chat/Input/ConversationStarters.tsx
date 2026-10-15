@@ -7,6 +7,7 @@ import {
 } from '~/data-provider';
 import { useChatContext, useAgentsMapContext, useAssistantsMapContext } from '~/Providers';
 import { getIconEndpoint, getEntity, getModelSpec } from '~/utils';
+import { markSuggestedPrompt } from '~/lib/pendo/conversation';
 import { useSubmitMessage } from '~/hooks';
 
 const ConversationStarters = () => {
@@ -63,7 +64,11 @@ const ConversationStarters = () => {
 
   const { submitMessage } = useSubmitMessage();
   const sendConversationStarter = useCallback(
-    (text: string) => submitMessage({ text }),
+    (text: string) => {
+      // FORK: Pendo agent analytics, see client/src/lib/pendo/conversation.ts
+      markSuggestedPrompt(text);
+      return submitMessage({ text });
+    },
     [submitMessage],
   );
 

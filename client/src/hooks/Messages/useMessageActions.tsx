@@ -18,6 +18,7 @@ import {
   getMessageClipboardSource,
   hasCopyableText,
 } from './useCopyToClipboard';
+import { trackAgentRetry, trackAgentFeedback } from '~/lib/pendo/conversation';
 import { useAssistantsMapContext, useAgentsMapContext } from '~/Providers';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useGetAddedConvo } from '~/hooks/Chat';
@@ -122,6 +123,8 @@ export default function useMessageActions(props: TMessageActions) {
       return;
     }
 
+    // FORK: Pendo agent analytics, see client/src/lib/pendo/conversation.ts
+    trackAgentRetry(message);
     regenerate(message, { addedConvo: getAddedConvo() });
   }, [chatContext, isCreatedByUser, message, regenerate, getAddedConvo]);
 
@@ -161,6 +164,8 @@ export default function useMessageActions(props: TMessageActions) {
 
       feedbackMutation.mutate(payload, {
         onSuccess: (data) => {
+          // FORK: Pendo agent analytics, see client/src/lib/pendo/conversation.ts
+          trackAgentFeedback(data, feedback?.rating, message?.endpoint);
           if (!data.feedback) {
             setFeedback(undefined);
           } else {
@@ -177,7 +182,7 @@ export default function useMessageActions(props: TMessageActions) {
         },
       });
     },
-    [feedbackMutation],
+    [feedbackMutation, feedback?.rating, message?.endpoint],
   );
 
   return {

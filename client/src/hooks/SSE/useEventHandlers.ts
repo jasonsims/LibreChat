@@ -61,6 +61,7 @@ import {
   withSubmittedCodeDecision,
 } from '~/hooks/Agents/codeDecision';
 import useFocusRegeneratedResponse from '~/hooks/Chat/useFocusRegeneratedResponse';
+import { trackAgentPrompt, trackAgentResponse } from '~/lib/pendo/conversation';
 import { shouldResetSubagentAtomsOnConversationChange } from './cleanup';
 import useAttachmentHandler from '~/hooks/SSE/useAttachmentHandler';
 import { useChatTransport } from '~/Providers/ChatTransportContext';
@@ -904,6 +905,8 @@ export default function useEventHandlers({
 
   const createdHandler = useCallback(
     (data: ChatCreatedFrame, submission: EventSubmission) => {
+      // FORK: Pendo agent analytics, see client/src/lib/pendo/conversation.ts
+      trackAgentPrompt(submission);
       const { messages, userMessage, isRegenerate = false, isTemporary = false } = submission;
       /**
        * The spread carries `manualSkills` through from
@@ -1130,6 +1133,8 @@ export default function useEventHandlers({
         }
 
         setCompleted((prev) => new Set(prev.add(submission.initialResponse.messageId)));
+        // FORK: Pendo agent analytics, see client/src/lib/pendo/conversation.ts
+        trackAgentResponse(responseMessage, queryClient);
 
         const currentMessages = getMessages();
         /* Early return if messages are empty; i.e., the user navigated away */
