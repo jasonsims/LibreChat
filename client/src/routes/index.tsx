@@ -13,6 +13,7 @@ import { OAuthSuccess, OAuthError } from '~/components/OAuth';
 import { AuthContextProvider } from '~/hooks/AuthContext';
 import { importWithRecovery } from '~/lib/assets/lazy';
 import RouteErrorBoundary from './RouteErrorBoundary';
+import PendoIdentity from '~/lib/pendo/Identity';
 import StartupLayout from './Layouts/Startup';
 import MarketplaceRoute from './Marketplace';
 import LoginLayout from './Layouts/Login';
@@ -29,6 +30,8 @@ const AuthLayout = () => (
       <Outlet />
     </WithRum>
     <ApiErrorWatcher />
+    {/* FORK: Novus by Pendo. Identifies the signed-in user; see FORK.md. */}
+    <PendoIdentity />
   </AuthContextProvider>
 );
 
