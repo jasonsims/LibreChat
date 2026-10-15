@@ -64,10 +64,13 @@ Upstream's `.gitignore` ignores `/.claude/` and force-adds its skills. New files
 
 ## Changes from upstream
 
-| Date       | Files                                          | Change | Why                                                                                                                                          |
-| ---------- | ---------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-15 | `FORK.md`, `.claude/rules/fork.md`             | New    | Fork docs and Claude Code rules.                                                                                                             |
-| 2026-10-15 | `.railway/railway.ts`, `.railway/package.json` | New    | Railway infrastructure as code: the app service and its MongoDB. `.dockerignore` already excludes dotfiles, so none of it reaches the image. |
+| Date       | Files                                             | Change | Why                                                                                                                                          |
+| ---------- | ------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-15 | `FORK.md`, `.claude/rules/fork.md`                | New    | Fork docs and Claude Code rules.                                                                                                             |
+| 2026-10-15 | `.railway/railway.ts`, `.railway/package.json`    | New    | Railway infrastructure as code: the app service and its MongoDB. `.dockerignore` already excludes dotfiles, so none of it reaches the image. |
+| 2026-10-15 | `client/src/lib/pendo/`                           | New    | Pendo agent analytics (`pendo.trackAgent`): prompts, retries, replies and thumbs ratings. Inert until the Pendo snippet is installed.        |
+| 2026-10-15 | `client/src/routes/ChatSettings.tsx`              | Edit   | Supplies the chat transport wrapped in `withAgentTracking`, which reports each admitted turn and each finished reply.                        |
+| 2026-10-15 | `client/src/hooks/Messages/useMessageActions.tsx` | Edit   | Reports a newly set thumbs rating through `trackFeedback`.                                                                                   |
 
 Upstream's `.nvmrc` (Node `24.16.0`, the current LTS line and the version the Dockerfile builds on) is used as is. Don't add a fork-specific one.
 
