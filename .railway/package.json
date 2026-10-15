@@ -1,0 +1,9 @@
+{
+  "name": "librechat-railway",
+  "private": true,
+  "type": "module",
+  "description": "FORK: Railway infrastructure as code for jasonsims/LibreChat. Not an npm workspace.",
+  "devDependencies": {
+    "railway": "3.16.0"
+  }
+}
