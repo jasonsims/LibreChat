@@ -9,6 +9,10 @@ import './mobile.css';
 import { ApiErrorBoundaryProvider } from './hooks/ApiErrorBoundaryContext';
 import 'katex/dist/katex.min.css';
 import 'katex/dist/contrib/copy-tex.js';
+import { initializePendo } from './lib/pendo/agent';
+
+// FORK: boots Novus by Pendo once, before the first render. See FORK.md.
+initializePendo();
 
 const container = document.getElementById('root');
 const root = createRoot(container);

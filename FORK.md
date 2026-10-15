@@ -68,6 +68,11 @@ Upstream's `.gitignore` ignores `/.claude/` and force-adds its skills. New files
 | ---------- | ---------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-10-15 | `FORK.md`, `.claude/rules/fork.md`             | New    | Fork docs and Claude Code rules.                                                                                                             |
 | 2026-10-15 | `.railway/railway.ts`, `.railway/package.json` | New    | Railway infrastructure as code: the app service and its MongoDB. `.dockerignore` already excludes dotfiles, so none of it reaches the image. |
+| 2026-10-15 | `client/src/lib/pendo/`                        | New    | Novus by Pendo web SDK: initialize, identify and clear-session calls, and a transform that drops credentials from recorded URLs.             |
+| 2026-10-15 | `client/src/@types/pendo.d.ts`                 | New    | Types for the `pendo` global. Upstream's `.gitignore` ignores `*.d.ts`, so this file is force-added with `git add -f`.                       |
+| 2026-10-15 | `client/index.html`                            | Edit   | Pendo install snippet, verbatim under `prettier-ignore`. Stale-asset recovery no longer reloads the app when a Pendo script fails.           |
+| 2026-10-15 | `client/src/main.jsx`                          | Edit   | Calls `initializePendo()` once, before the first render.                                                                                     |
+| 2026-10-15 | `client/src/hooks/AuthContext.tsx`             | Edit   | Identifies the signed-in user with `usePendoIdentity` and resets Pendo to an anonymous visitor in `logout`.                                  |
 
 Upstream's `.nvmrc` (Node `24.16.0`, the current LTS line and the version the Dockerfile builds on) is used as is. Don't add a fork-specific one.
 

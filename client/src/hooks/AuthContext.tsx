@@ -44,6 +44,8 @@ import {
 import { resetChatFilterSessionAtom } from '~/components/Conversations/chatFilters';
 import { TAuthConfig, TUserContext, TAuthContext, TResError } from '~/common';
 import { resetFacetsAtom } from '~/components/Conversations/facets';
+import usePendoIdentity from '~/lib/pendo/useIdentity';
+import { clearPendoSession } from '~/lib/pendo/agent';
 import useTimeout from './useTimeout';
 import store from '~/store';
 
@@ -93,6 +95,9 @@ const AuthContextProvider = ({
 
   const userRoleName = user?.role ?? '';
   const isCustomRole = isAuthenticated && !!user?.role && !isSystemRoleName(user.role);
+
+  // FORK: identifies the signed-in user to Novus by Pendo. See FORK.md.
+  usePendoIdentity(isAuthenticated ? user : undefined);
 
   const { data: userRole = null } = useGetRole(SystemRoles.USER, {
     enabled: !!(isAuthenticated && (user?.role ?? '')),
@@ -234,6 +239,8 @@ const AuthContextProvider = ({
 
   const logout = useCallback(
     (redirect?: string) => {
+      // FORK: resets Novus by Pendo to a fresh anonymous visitor. See FORK.md.
+      clearPendoSession();
       clearPostLoginRedirect();
       clearTwoFactorSetupToken();
       if (redirect) {

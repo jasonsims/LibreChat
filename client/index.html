@@ -297,14 +297,21 @@
               el.tagName === 'LINK' && /preload/.test(el.rel || '') && /\.js$/.test(el.href || '');
             if (failedScript || failedPreload) {
               var isRumBootstrap = el.getAttribute('data-lc-rum-bootstrap') === 'true';
+              /* FORK: the Pendo agent and the scripts it loads are optional third-party code, and
+               * reloading cannot fix a blocked or unreachable Pendo host. See FORK.md. */
+              var scriptUrl = failedScript ? new URL(el.src) : null;
+              var isPendo =
+                !!scriptUrl &&
+                scriptUrl.origin !== window.location.origin &&
+                /pendo/i.test(scriptUrl.hostname);
               window.__lcRumPush('asset-load-error', {
                 tagName: el.tagName,
                 assetUrl: el.src || el.href,
-                optional: isRumBootstrap,
+                optional: isRumBootstrap || isPendo,
               });
               /* Caught optional imports must not reload the app. Required lazy imports
                * recover at their own boundary; preload links only report diagnostics. */
-              if (isRumBootstrap || failedPreload) {
+              if (isRumBootstrap || isPendo || failedPreload) {
                 return;
               }
               window.__lcRecoverStaleAssets();
@@ -324,6 +331,17 @@
           }
         });
       })();
+    </script>
+    <!-- FORK: Novus by Pendo install snippet, kept verbatim. See FORK.md. -->
+    <!-- prettier-ignore -->
+    <script>
+      (function(apiKey){
+          (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=o._q||[];
+          v=['initialize','identify','updateOptions','pageLoad','track', 'trackAgent'];for(w=0,x=v.length;w<x;++w)(function(m){
+          o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);
+          y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo-dev.pendo-dev.com/agent/static/'+apiKey+'/pendo.js';
+          z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
+      })('3ef0ee6b-1f63-4a09-ae44-62fba52883b6');
     </script>
     <script
       data-lc-rum-bootstrap="true"
