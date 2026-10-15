@@ -60,6 +60,7 @@ import useCodeWorkspace from '~/hooks/Agents/useCodeWorkspace';
 import useGetSender from '~/hooks/Conversations/useGetSender';
 import { activeUsageResponseIdFamily } from '~/store/usage';
 import { revealedQueuedTurnFamily } from '~/store/steer';
+import { trackAgentReaction } from '~/lib/pendo/agent';
 import store, { useGetEphemeralAgent } from '~/store';
 import { startupConfigKey } from '~/data-provider';
 import useUserKey from '~/hooks/Input/useUserKey';
@@ -904,6 +905,10 @@ export default function useChatFunctions({
     askInFlightRef.current = true;
     setSubmissionStart(Date.now());
     setSubmission(submission);
+    // FORK: Pendo agent analytics counts a regenerate as a retry of the reply it replaces.
+    if (isRegenerate && !isContinued && !isEdited && targetResponseMessage != null) {
+      trackAgentReaction(targetResponseMessage, conversation, 'retry');
+    }
     logger.dir('message_stream', {
       conversationId,
       messageId: currentMsg.messageId,

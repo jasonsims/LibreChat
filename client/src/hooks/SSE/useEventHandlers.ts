@@ -62,6 +62,7 @@ import {
 } from '~/hooks/Agents/codeDecision';
 import useFocusRegeneratedResponse from '~/hooks/Chat/useFocusRegeneratedResponse';
 import { shouldResetSubagentAtomsOnConversationChange } from './cleanup';
+import { trackAgentPrompt, trackAgentResponse } from '~/lib/pendo/agent';
 import useAttachmentHandler from '~/hooks/SSE/useAttachmentHandler';
 import { useChatTransport } from '~/Providers/ChatTransportContext';
 import useContentHandler from '~/hooks/SSE/useContentHandler';
@@ -826,6 +827,8 @@ export default function useEventHandlers({
     (data: TSyncData, submission: EventSubmission) => {
       const { conversationId, thread_id, responseMessage, requestMessage } = data;
       const { initialResponse, messages: _messages, userMessage, isTemporary = false } = submission;
+      // FORK: Pendo agent analytics; the Assistants run has saved the user turn.
+      trackAgentPrompt(submission);
       /** Swap the optimistic user row for the server-stamped one IN PLACE.
        *  Filtering it out and re-appending at the tail would order any of its
        *  already-present children (abandoned responses from preempted
@@ -905,6 +908,8 @@ export default function useEventHandlers({
   const createdHandler = useCallback(
     (data: ChatCreatedFrame, submission: EventSubmission) => {
       const { messages, userMessage, isRegenerate = false, isTemporary = false } = submission;
+      // FORK: Pendo agent analytics; the server has saved the user turn.
+      trackAgentPrompt(submission);
       /**
        * The spread carries `manualSkills` through from
        * `submission.initialResponse`: `useChatFunctions` seeds the field
@@ -1132,6 +1137,8 @@ export default function useEventHandlers({
         setCompleted((prev) => new Set(prev.add(submission.initialResponse.messageId)));
 
         const currentMessages = getMessages();
+        // FORK: Pendo agent analytics; reported before the navigated-away return below.
+        trackAgentResponse({ data, submission, messages: currentMessages, queryClient });
         /* Early return if messages are empty; i.e., the user navigated away */
         if (!currentMessages || currentMessages.length === 0) {
           return;

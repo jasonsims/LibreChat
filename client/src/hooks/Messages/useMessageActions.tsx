@@ -19,6 +19,7 @@ import {
   hasCopyableText,
 } from './useCopyToClipboard';
 import { useAssistantsMapContext, useAgentsMapContext } from '~/Providers';
+import { trackAgentFeedback } from '~/lib/pendo/agent';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { useGetAddedConvo } from '~/hooks/Chat';
 import { useLocalize } from '~/hooks';
@@ -155,6 +156,8 @@ export default function useMessageActions(props: TMessageActions) {
 
   const handleFeedback = useCallback(
     ({ feedback: newFeedback }: { feedback: TFeedback | undefined }) => {
+      // FORK: Pendo agent analytics reports the rating against the one the reply already has.
+      trackAgentFeedback(message, conversation, newFeedback, feedback);
       const payload: TUpdateFeedbackRequest = {
         feedback: newFeedback ? toMinimalFeedback(newFeedback) : undefined,
       };
@@ -177,7 +180,7 @@ export default function useMessageActions(props: TMessageActions) {
         },
       });
     },
-    [feedbackMutation],
+    [feedbackMutation, message, conversation, feedback],
   );
 
   return {
