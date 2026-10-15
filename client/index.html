@@ -167,6 +167,37 @@
         document.head.appendChild(loadingContainerStyle);
       })();
     </script>
+    <!-- FORK: Novus by Pendo; see FORK.md. The install snippet is kept verbatim. The agent is a
+         third-party script, so when a blocker or an outage stops anything on its CDN from loading,
+         the error is stopped before it reaches the stale-asset guard below, which would otherwise
+         reload the page. This listener has to be registered before the guard's to run first. -->
+    <script>
+      window.addEventListener(
+        'error',
+        function (event) {
+          var el = event.target;
+          if (
+            el &&
+            el.tagName === 'SCRIPT' &&
+            typeof el.src === 'string' &&
+            el.src.indexOf('https://cdn.pendo-dev.pendo-dev.com/') === 0
+          ) {
+            event.stopImmediatePropagation();
+          }
+        },
+        true,
+      );
+    </script>
+    <!-- prettier-ignore -->
+    <script>
+(function(apiKey){
+    (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=o._q||[];
+    v=['initialize','identify','updateOptions','pageLoad','track', 'trackAgent'];for(w=0,x=v.length;w<x;++w)(function(m){
+    o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);
+    y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo-dev.pendo-dev.com/agent/static/'+apiKey+'/pendo.js';
+    z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
+})('3ef0ee6b-1f63-4a09-ae44-62fba52883b6');
+    </script>
     <script>
       (function () {
         var KEY = 'lc-asset-recovery-at';
