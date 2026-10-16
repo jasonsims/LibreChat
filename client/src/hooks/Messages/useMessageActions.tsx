@@ -20,6 +20,7 @@ import {
 } from './useCopyToClipboard';
 import { useAssistantsMapContext, useAgentsMapContext } from '~/Providers';
 import { useAuthContext } from '~/hooks/AuthContext';
+import { trackFeedback } from '~/lib/pendo/track';
 import { useGetAddedConvo } from '~/hooks/Chat';
 import { useLocalize } from '~/hooks';
 import store from '~/store';
@@ -155,6 +156,8 @@ export default function useMessageActions(props: TMessageActions) {
 
   const handleFeedback = useCallback(
     ({ feedback: newFeedback }: { feedback: TFeedback | undefined }) => {
+      // FORK: Pendo agent analytics. See "Changes from upstream" in FORK.md.
+      trackFeedback(message, feedback?.rating, newFeedback?.rating);
       const payload: TUpdateFeedbackRequest = {
         feedback: newFeedback ? toMinimalFeedback(newFeedback) : undefined,
       };
@@ -177,7 +180,7 @@ export default function useMessageActions(props: TMessageActions) {
         },
       });
     },
-    [feedbackMutation],
+    [feedbackMutation, feedback?.rating, message],
   );
 
   return {

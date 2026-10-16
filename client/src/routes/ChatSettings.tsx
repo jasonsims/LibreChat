@@ -5,8 +5,12 @@ import type { ReactNode } from 'react';
 import type { ChatSettings } from '~/hooks/Chat/contract';
 import { ChatTransportContext, defaultChatTransport } from '~/Providers/ChatTransportContext';
 import { ChatSettingsContext } from '~/Providers/ChatSettingsContext';
+import { withAgentTracking } from '~/lib/pendo/transport';
 import { duringRunActionAtom } from '~/store/duringRun';
 import store from '~/store';
+
+// FORK: Pendo agent analytics. See "Changes from upstream" in FORK.md.
+const chatTransport = withAgentTracking(defaultChatTransport);
 
 /** Supplies the chat's app-global preferences from the app's own settings store, and the
  *  transport its turns run over. */
@@ -36,7 +40,7 @@ export default function ChatSettingsProvider({ children }: { children: ReactNode
   );
 
   return (
-    <ChatTransportContext.Provider value={defaultChatTransport}>
+    <ChatTransportContext.Provider value={chatTransport}>
       <ChatSettingsContext.Provider value={settings}>{children}</ChatSettingsContext.Provider>
     </ChatTransportContext.Provider>
   );
