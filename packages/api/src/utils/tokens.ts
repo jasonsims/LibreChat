@@ -173,6 +173,8 @@ const anthropicModels = {
   'claude-3.7-sonnet': 200000,
   'claude-4': 200000,
   'claude-haiku-4-5': 200000,
+  'claude-haiku-5-5': 1000000, // FORK: Haiku 5.5
+  'claude-haiku-5.5': 1000000, // FORK: Haiku 5.5
   'claude-opus-4': 200000,
   'claude-opus-4-5': 200000,
   'claude-sonnet-4': 200000,
@@ -556,6 +558,8 @@ const anthropicMaxOutputs = {
   'claude-3-sonnet': 4096,
   'claude-3-opus': 4096,
   'claude-haiku-4-5': 64000,
+  'claude-haiku-5-5': 128000, // FORK: Haiku 5.5
+  'claude-haiku-5.5': 128000, // FORK: Haiku 5.5
   'claude-sonnet-4': 64000,
   'claude-sonnet-4-6': 128000,
   'claude-sonnet-4.6': 128000,

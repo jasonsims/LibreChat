@@ -1853,12 +1853,8 @@ describe('getLLMConfig', () => {
       });
 
       it('should future-proof Claude 5.x Haiku models with 64K default', () => {
-        const testCases = [
-          'claude-haiku-5',
-          'claude-haiku-5-0',
-          'claude-haiku-5-2-20260101',
-          'claude-haiku-5.5',
-        ];
+        // FORK: claude-haiku-5.5 removed; Haiku 5.5 has 128K output (see haiku.spec.ts).
+        const testCases = ['claude-haiku-5', 'claude-haiku-5-0', 'claude-haiku-5-2-20260101'];
 
         testCases.forEach((model) => {
           const result = getLLMConfig('test-key', {
