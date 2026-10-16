@@ -1,6 +1,7 @@
 // FORK: Haiku 5.5 support, not yet upstream; see FORK.md.
 import { Providers, getChatModelClass } from '@librechat/agents';
-import { AnthropicEffort, ThinkingDisplay } from 'librechat-data-provider';
+import { EModelEndpoint, AnthropicEffort, ThinkingDisplay } from 'librechat-data-provider';
+import { getModelMaxTokens, getModelMaxOutputTokens } from '~/utils/tokens';
 import { getLLMConfig } from './llm';
 
 jest.mock('https-proxy-agent', () => ({
@@ -89,4 +90,17 @@ describe('getLLMConfig - Claude Haiku 5.5', () => {
 
     expect(payload.thinking).toEqual({ type: 'enabled', budget_tokens: 2000 });
   });
+});
+
+describe('token limits - Claude Haiku 5.5', () => {
+  it.each([EModelEndpoint.anthropic, EModelEndpoint.agents, EModelEndpoint.bedrock])(
+    'reports a 1M context and 128K output on %s',
+    (endpoint) => {
+      const model =
+        endpoint === EModelEndpoint.bedrock ? 'anthropic.claude-haiku-5-5' : 'claude-haiku-5-5';
+
+      expect(getModelMaxTokens(model, endpoint)).toBe(1000000);
+      expect(getModelMaxOutputTokens(model, endpoint)).toBe(128000);
+    },
+  );
 });

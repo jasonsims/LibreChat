@@ -141,7 +141,7 @@ export const THINKING_BLOCK_BINDING = {
 /** Models whose thinking blocks are bound to the conversation prefix (Opus 5.5+, Sonnet 5.5+, Fable/Mythos). */
 export function bindsThinkingBlocks(model: string): boolean {
   return (
-    hasAlwaysOnThinking(model) || hasBetweenToolsThinkingFloor(model) || isHaiku55OrLater(model) // FORK: Haiku 5.5
+    hasAlwaysOnThinking(model) || hasBetweenToolsThinkingFloor(model) || isHaiku55Line(model) // FORK: Haiku 5.5
   );
 }
 
@@ -210,7 +210,7 @@ function parseHaikuVersion(model: string): ClaudeVersion | null {
  * to the conversation prefix, and has a 1M context with 128k output. Limited to
  * the 5.x line so upstream's existing expectations for later Haiku IDs hold.
  */
-function isHaiku55OrLater(model: string): boolean {
+export function isHaiku55Line(model: string): boolean {
   const version = parseHaikuVersion(model);
   return version?.major === 5 && isAtLeast(version, 5, 5);
 }
@@ -226,7 +226,7 @@ export function supportsAdaptiveThinking(model: string): boolean {
   return (
     isAtLeast(parseOpusVersion(model), 4, 6) ||
     isAtLeast(parseSonnetVersion(model), 4, 6) ||
-    isHaiku55OrLater(model) || // FORK: Haiku 5.5
+    isHaiku55Line(model) || // FORK: Haiku 5.5
     s.isMythosClassModel(model)
   );
 }
@@ -245,7 +245,7 @@ export function omitsThinkingByDefault(model: string): boolean {
   return (
     isAtLeast(parseOpusVersion(model), 4, 7) ||
     isAtLeast(parseSonnetVersion(model), 5, 0) ||
-    isHaiku55OrLater(model) || // FORK: Haiku 5.5
+    isHaiku55Line(model) || // FORK: Haiku 5.5
     s.isMythosClassModel(model)
   );
 }
@@ -254,7 +254,7 @@ export function omitsSamplingParameters(model: string): boolean {
   return (
     isAtLeast(parseOpusVersion(model), 4, 7) ||
     isAtLeast(parseSonnetVersion(model), 5, 0) ||
-    isHaiku55OrLater(model) || // FORK: Haiku 5.5
+    isHaiku55Line(model) || // FORK: Haiku 5.5
     s.isMythosClassModel(model)
   );
 }
@@ -279,7 +279,7 @@ export function requiresExplicitThinkingDisabled(model: string): boolean {
   return (
     isAtLeast(parseSonnetVersion(model), 5, 0) ||
     isAtLeast(parseOpusVersion(model), 5, 0) ||
-    isHaiku55OrLater(model) // FORK: Haiku 5.5
+    isHaiku55Line(model) // FORK: Haiku 5.5
   );
 }
 
@@ -306,7 +306,7 @@ export function capsEffortWhenThinkingDisabled(model: string): boolean {
   if (hasBetweenToolsThinkingFloor(model)) {
     return true;
   }
-  return isAtLeast(parseOpusVersion(model), 5, 0) || isHaiku55OrLater(model); // FORK: Haiku 5.5
+  return isAtLeast(parseOpusVersion(model), 5, 0) || isHaiku55Line(model); // FORK: Haiku 5.5
 }
 
 /**
@@ -377,7 +377,7 @@ export function supportsContext1m(model: string): boolean {
   return (
     isAtLeast(parseSonnetVersion(model), 4, 6) ||
     isAtLeast(parseOpusVersion(model), 4, 6) ||
-    isHaiku55OrLater(model) || // FORK: Haiku 5.5
+    isHaiku55Line(model) || // FORK: Haiku 5.5
     s.isMythosClassModel(model)
   );
 }
@@ -387,7 +387,7 @@ export function supportsOutput128k(model: string): boolean {
   return (
     isAtLeast(parseOpusVersion(model), 5, 5) ||
     isAtLeast(parseSonnetVersion(model), 5, 5) ||
-    isHaiku55OrLater(model) || // FORK: Haiku 5.5
+    isHaiku55Line(model) || // FORK: Haiku 5.5
     s.isMythosClassModel(model)
   );
 }

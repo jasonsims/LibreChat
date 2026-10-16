@@ -1,5 +1,5 @@
 // FORK: Haiku 5.5 support, not yet upstream; see FORK.md.
-import { AnthropicEffort, anthropicSettings } from '../src/schemas';
+import type { SettingDefinition } from '../src/generate';
 import {
   supportsAdaptiveThinking,
   omitsSamplingParameters,
@@ -13,6 +13,9 @@ import {
   supportsOutput128k,
   hasAlwaysOnThinking,
 } from '../src/bedrock';
+import { applyModelAwareDefaults, paramSettings } from '../src/parameterSettings';
+import { AnthropicEffort, anthropicSettings } from '../src/schemas';
+import { EModelEndpoint } from '../src/types';
 
 const HAIKU_55_IDS = [
   'claude-haiku-5-5',
@@ -78,5 +81,28 @@ describe('Claude Haiku 5.5 max output tokens', () => {
   it.each(['claude-haiku-4-5', 'claude-haiku-5', 'claude-haiku-6'])('keeps %s at 64k', (model) => {
     expect(reset(model)).toBe(64000);
     expect(set(100000, model)).toBe(64000);
+  });
+});
+
+describe('Claude Haiku 5.5 parameter panel', () => {
+  const anthropicParams = paramSettings[EModelEndpoint.anthropic] as SettingDefinition[];
+  const keys = (model: string) =>
+    applyModelAwareDefaults(anthropicParams, EModelEndpoint.anthropic, model).map(
+      (setting) => setting.key,
+    );
+
+  it('keeps the thinking toggle and effort but hides budget and sampling controls', () => {
+    const result = keys('claude-haiku-5-5');
+
+    expect(result).toEqual(expect.arrayContaining(['thinking', 'effort']));
+    for (const hidden of ['thinkingBudget', 'temperature', 'topP', 'topK']) {
+      expect(result).not.toContain(hidden);
+    }
+  });
+
+  it('leaves the Haiku 4.5 controls alone', () => {
+    expect(keys('claude-haiku-4-5')).toEqual(
+      expect.arrayContaining(['thinking', 'thinkingBudget', 'temperature', 'topP', 'topK']),
+    );
   });
 });

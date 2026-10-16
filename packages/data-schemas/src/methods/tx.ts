@@ -181,7 +181,7 @@ export const tokenValues: Record<string, { prompt: number; completion: number }>
     'claude-3-7-sonnet': { prompt: 3, completion: 15 },
     'claude-3.7-sonnet': { prompt: 3, completion: 15 },
     'claude-haiku-4-5': { prompt: 1, completion: 5 },
-    /** FORK: Haiku 5.5, prompts up to 100K tokens; longer prompts bill at 5x. */
+    /** FORK: Haiku 5.5, prompts up to 100K tokens; see `premiumTokenValues` for longer ones. */
     'claude-haiku-5-5': { prompt: 0.1, completion: 0.5 },
     'claude-opus-4': { prompt: 15, completion: 75 },
     'claude-opus-4-5': { prompt: 5, completion: 25 },
@@ -477,6 +477,8 @@ export const premiumTokenValues: Record<
   /** xAI bills >=200K at the long-context rate; this table uses exclusive thresholds. */
   'grok-4.7': { threshold: 199999, prompt: 4, completion: 12 },
   'grok-4-7': { threshold: 199999, prompt: 4, completion: 12 },
+  /** FORK: Haiku 5.5 bills prompts over 100K tokens at 5x. */
+  'claude-haiku-5-5': { threshold: 100000, prompt: 0.5, completion: 2.5 },
 };
 
 /**
@@ -499,6 +501,7 @@ export const premiumCacheTokenValues: Record<
   'gpt-6-luna': { threshold: 272000, write: 0.25, read: 0.02 },
   'grok-4.7': { threshold: 199999, write: 4, read: 1 },
   'grok-4-7': { threshold: 199999, write: 4, read: 1 },
+  'claude-haiku-5-5': { threshold: 100000, write: 0.625, read: 0.05 }, // FORK: Haiku 5.5
 };
 
 export function createTxMethods(
