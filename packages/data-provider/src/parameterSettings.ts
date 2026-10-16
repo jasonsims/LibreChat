@@ -24,6 +24,7 @@ import {
   hasBetweenToolsThinkingFloor,
   supportsPromptCache,
   supportsAdaptiveThinking,
+  isHaiku55Line, // FORK: Haiku 5.5
 } from './bedrock';
 import {
   getModelKey,
@@ -1628,6 +1629,12 @@ export function applyModelAwareDefaults(
       .filter(
         (setting) => !['thinkingBudget', 'temperature', 'topP', 'topK'].includes(setting.key),
       );
+  }
+  /** FORK: Haiku 5.5 keeps the toggle ("off" sends `disabled`) but rejects budgets and sampling. */
+  if (isHaiku55Line(model)) {
+    return settings.filter(
+      (setting) => !['thinkingBudget', 'temperature', 'topP', 'topK'].includes(setting.key),
+    );
   }
   const modelAwareSettings =
     endpoint === EModelEndpoint.google

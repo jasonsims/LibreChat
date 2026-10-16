@@ -651,6 +651,9 @@ const LEGACY_ANTHROPIC_MAX_OUTPUT = 4096 as const;
 const CLAUDE_SONNET_128K_OUTPUT_PATTERN =
   /claude-sonnet[-.]?(?:4[-.]?(?:[6-9]|\d{2})|[5-9]|\d{2,})(?=$|[^0-9])/;
 
+/** FORK: Haiku 5.5 (the 5.x line from 5.5) emits up to 128k output tokens; see FORK.md. */
+const CLAUDE_HAIKU_128K_OUTPUT_PATTERN = /claude-haiku[-.]?5[-.](?:[5-9]|\d{2})(?=$|[^0-9])/;
+
 /**
  * Claude "Mythos-class" model families — new top-level classes (peers of
  * `opus`/`sonnet`/`haiku`) that ship with the post-Opus-4.7 modern profile:
@@ -710,7 +713,10 @@ export const anthropicSettings = {
         return ANTHROPIC_MAX_OUTPUT;
       }
 
-      if (CLAUDE_SONNET_128K_OUTPUT_PATTERN.test(modelName)) {
+      if (
+        CLAUDE_SONNET_128K_OUTPUT_PATTERN.test(modelName) ||
+        CLAUDE_HAIKU_128K_OUTPUT_PATTERN.test(modelName) // FORK: Haiku 5.5
+      ) {
         return ANTHROPIC_MAX_OUTPUT;
       }
 
@@ -743,7 +749,10 @@ export const anthropicSettings = {
         return value;
       }
 
-      if (CLAUDE_SONNET_128K_OUTPUT_PATTERN.test(modelName)) {
+      if (
+        CLAUDE_SONNET_128K_OUTPUT_PATTERN.test(modelName) ||
+        CLAUDE_HAIKU_128K_OUTPUT_PATTERN.test(modelName) // FORK: Haiku 5.5
+      ) {
         if (value > ANTHROPIC_MAX_OUTPUT) {
           return ANTHROPIC_MAX_OUTPUT;
         }
