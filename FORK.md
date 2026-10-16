@@ -97,7 +97,7 @@ When a sync conflicts in one of those files, take upstream's version and re-appl
   - `librechat`: built from this repo's `Dockerfile` on branch `deploy`. Health check `GET /health`. `PORT` is pinned to `3080` (the Dockerfile's `EXPOSE`), and the image sets `HOST=0.0.0.0`.
   - `mongo`: Railway's MongoDB 8 with the 5 GB volume `mongo-volume` at `/data/db`. Mongo needs at least 500 MB free on it to build indexes. Volumes can grow online but never shrink. `MONGO_URI` references its `MONGO_URL`, which has no database name, so data lives in Mongo's default `test` database.
 - Not deployed: Meilisearch (`SEARCH=false`, so conversation search is off), the RAG API (file chat is off), Redis (single instance, in-memory caches).
-- AI provider: Anthropic only, restricted to `claude-haiku-5-5` (`ANTHROPIC_MODELS`) to keep bot traffic cheap. Other endpoints stay hidden because their keys are unset. The Agents endpoint is on by default and uses the same key.
+- AI provider: Anthropic only, restricted by `ANTHROPIC_MODELS` to keep bot traffic cheap. `claude-haiku-5-5` is listed first, so it is the default; `claude-haiku-4-5`, `claude-sonnet-5-5` and `claude-opus-5-5` are listed for comparison testing. Other endpoints stay hidden because their keys are unset. The Agents endpoint is on by default and uses the same key.
 - `librechat.yaml` is not used. LibreChat logs that it's missing and runs on defaults. To add one, commit it under a fork-owned path and set `CONFIG_PATH`.
 
 ### First-time setup
