@@ -1,4 +1,4 @@
-// FORK: Claude Haiku 5.5 support, not yet upstream; see FORK.md.
+// FORK: Haiku 5.5 support, not yet upstream; see FORK.md.
 import { Providers, getChatModelClass } from '@librechat/agents';
 import { AnthropicEffort, ThinkingDisplay } from 'librechat-data-provider';
 import { getLLMConfig } from './llm';

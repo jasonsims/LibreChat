@@ -1,4 +1,4 @@
-// FORK: Claude Haiku 5.5 support, not yet upstream; see FORK.md.
+// FORK: Haiku 5.5 support, not yet upstream; see FORK.md.
 import { AnthropicEffort, anthropicSettings } from '../src/schemas';
 import {
   supportsAdaptiveThinking,

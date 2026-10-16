@@ -183,7 +183,7 @@ function parseSonnetVersion(model: string): ClaudeVersion | null {
   return null;
 }
 
-// FORK: Claude Haiku 5.5 support, not yet upstream; see FORK.md.
+// FORK: Haiku 5.5 support, not yet upstream; see FORK.md.
 /** Extracts haiku major/minor version from both naming formats, bounded like `parseSonnetVersion`. */
 function parseHaikuVersion(model: string): ClaudeVersion | null {
   const nameFirst = model.match(/claude-haiku[-.]?(\d+)(?:[-.](\d{1,2})(?!\d))?/);
