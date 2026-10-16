@@ -17,6 +17,7 @@ import { NotificationSeverity } from '~/common';
 import { formatMessageText } from './format';
 import { cleanupPreset } from '~/utils';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 type ExportValues = {
   fieldName: string;
@@ -87,9 +88,10 @@ export default function useExportConversation({
     return true;
   };
 
+  /** FORK: resolves to its outcome for the Pendo `conversation_exported` event. */
   const exportScreenshot = async () => {
     if (refuseUnsafeScreenshot()) {
-      return;
+      return 'blocked_private_text';
     }
     const target = screenshotTargetRef?.current;
     let data: Blob;
@@ -109,7 +111,7 @@ export default function useExportConversation({
       }
     } catch (err) {
       if (refuseUnsafeScreenshot()) {
-        return;
+        return 'blocked_private_text';
       }
       console.error('Failed to capture screenshot');
       showToast({
@@ -121,12 +123,13 @@ export default function useExportConversation({
         severity: NotificationSeverity.ERROR,
         showIcon: true,
       });
-      return;
+      return 'capture_failed';
     }
     if (refuseUnsafeScreenshot()) {
-      return;
+      return 'blocked_private_text';
     }
     download(data, `${filename}.png`, 'image/png');
+    return 'success';
   };
 
   const exportCSV = async () => {
@@ -339,7 +342,17 @@ export default function useExportConversation({
   };
 
   const exportConversation = async () => {
+    // FORK: Pendo track event properties; `outcome` is added once the export settles.
+    const exportProperties = {
+      exportType: type,
+      includeOptions: includeOptions === true,
+      exportBranches: exportBranches === true,
+      recursive: recursive === true,
+      endpoint: conversation?.endpoint,
+      conversationId: conversation?.conversationId,
+    };
     try {
+      let outcome = 'success';
       if (type === 'json') {
         await exportJSON();
       } else if (type == 'text') {
@@ -349,9 +362,13 @@ export default function useExportConversation({
       } else if (type == 'csv') {
         await exportCSV();
       } else if (type == 'screenshot') {
-        await exportScreenshot();
+        outcome = await exportScreenshot();
       }
+      // FORK: Pendo track event.
+      pendo.track('conversation_exported', { outcome, ...exportProperties });
     } catch {
+      // FORK: Pendo track event.
+      pendo.track('conversation_exported', { outcome: 'unavailable', ...exportProperties });
       showToast({
         message: localize('com_nav_export_unavailable'),
         severity: NotificationSeverity.ERROR,

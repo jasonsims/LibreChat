@@ -64,6 +64,7 @@ import store, { useGetEphemeralAgent } from '~/store';
 import { startupConfigKey } from '~/data-provider';
 import useUserKey from '~/hooks/Input/useUserKey';
 import { useAuthContext } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 /** A revalidating cache younger than this is locally authoritative (the run
  * that just streamed wrote it) and stays sendable; older ones wait for the
@@ -904,6 +905,35 @@ export default function useChatFunctions({
     askInFlightRef.current = true;
     setSubmissionStart(Date.now());
     setSubmission(submission);
+    // FORK: Pendo track event. `ask` is the one funnel for every kind of send.
+    let submissionType = 'new';
+    if (compact) {
+      submissionType = 'compact';
+    } else if (isContinued) {
+      submissionType = 'continue';
+    } else if (isRegenerate) {
+      submissionType = editedContent ? 'edit_rerun' : 'regenerate';
+    }
+    pendo.track('chat_message_sent', {
+      submissionType,
+      endpoint,
+      endpointType,
+      model: conversation?.model,
+      agent_id: conversation?.agent_id,
+      spec: conversation?.spec,
+      isNewConversation: conversationId == null,
+      isTemporary,
+      isMultiConvo: addedConvo != null,
+      textLength: text.length,
+      fileCount: currentMsg.files?.length ?? 0,
+      manualSkillCount: manualSkills.length,
+      quoteCount: quotes.length,
+      hasProject: chatProjectId != null,
+      mcpServerCount: ephemeralAgent?.mcp?.length ?? 0,
+      webSearchEnabled: ephemeralAgent?.web_search === true,
+      codeExecutionEnabled: ephemeralAgent?.execute_code === true,
+      fileSearchEnabled: ephemeralAgent?.file_search === true,
+    });
     logger.dir('message_stream', {
       conversationId,
       messageId: currentMsg.messageId,

@@ -33,6 +33,7 @@ import { updateConversationTag } from '~/utils/conversationTags';
 import { isTemporaryConversation } from '~/utils/conversation';
 import { markTitleGenerationProcessed } from './SSE/queries';
 import { useConversationTagsQuery } from './queries';
+import { pendo } from '~/lib/pendo';
 
 export const useUpdateConversationMutation = (
   id: string,
@@ -51,6 +52,17 @@ export const useUpdateConversationMutation = (
           throw new Error('Conversation rename did not return a title');
         }
         const targetId = payload.conversationId || id;
+        // FORK: Pendo track event. Read before the rename lands in the cache below.
+        const renamed = queryClient.getQueryData<t.TConversation>([
+          QueryKeys.conversation,
+          targetId,
+        ]);
+        pendo.track('conversation_renamed', {
+          titleLength: updatedConvo.title.length,
+          replacedGeneratedTitle: renamed ? renamed.titleSetByUser !== true : undefined,
+          titleRevision: updatedConvo.titleRevision,
+          conversationId: targetId,
+        });
         void queryClient.cancelQueries(
           { queryKey: [QueryKeys.conversation, targetId], exact: true },
           { revert: false },
@@ -132,6 +144,12 @@ export const useArchiveConvoMutation = (
       onMutate,
       onSuccess: (_data, vars, context) => {
         const isArchived = vars.isArchived === true;
+        // FORK: Pendo track event. One hook backs every archive and restore surface.
+        pendo.track('conversation_archived', {
+          action: isArchived ? 'archive' : 'unarchive',
+          hadProject: !!_data.chatProjectId,
+          conversationId: vars.conversationId,
+        });
 
         removeConvoFromAllQueries(queryClient, vars.conversationId);
 
@@ -271,6 +289,12 @@ export const usePinConversationMutation = (
         }
       },
       onSuccess: async (data, vars, context) => {
+        // FORK: Pendo track event, on the server-confirmed pin state.
+        pendo.track('conversation_pinned', {
+          pinned: vars.pinned,
+          hasProject: !!data?.chatProjectId,
+          conversationId: vars.conversationId,
+        });
         /** A project drop can start a list refresh before its following unpin.
          * Cancel that older snapshot before publishing the authoritative pin result. */
         await Promise.all([
@@ -1441,6 +1465,15 @@ export const useDeleteConversationMutation = (
           clearDeletedConversationMessagesCache(queryClient, vars.conversationId);
         }
 
+        // FORK: Pendo track event. `source` is the request's own field, unchanged.
+        pendo.track('conversation_deleted', {
+          source: vars.source,
+          endpoint: vars.endpoint,
+          hadProject: !!deletedProjectId,
+          wasArchived: deletedConversation?.isArchived === true,
+          conversationId: vars.conversationId,
+        });
+
         // Also remove from all archivedConversations caches
         const archivedQueries = queryClient
           .getQueryCache()
@@ -1511,6 +1544,14 @@ export const useDuplicateConversationMutation = (
       if (!duplicatedConversation?.conversationId) {
         return;
       }
+      // FORK: Pendo track event.
+      pendo.track('conversation_duplicated', {
+        messageCount: data.messages?.length ?? 0,
+        isArchived: duplicatedConversation.isArchived === true,
+        hasProject: !!duplicatedConversation.chatProjectId,
+        sourceConversationId: vars.conversationId,
+        newConversationId: duplicatedConversation.conversationId,
+      });
       queryClient.setQueryData(
         [QueryKeys.conversation, duplicatedConversation.conversationId],
         duplicatedConversation,

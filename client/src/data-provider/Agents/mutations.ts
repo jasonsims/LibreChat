@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { dataService, MutationKeys, PermissionBits, QueryKeys } from 'librechat-data-provider';
 import type { QueryClient, UseMutationResult } from '@tanstack/react-query';
 import type * as t from 'librechat-data-provider';
+import { pendo } from '~/lib/pendo';
 
 /**
  * AGENTS
@@ -231,6 +232,12 @@ export const useDuplicateAgentMutation = (
       onMutate: options?.onMutate,
       onError: options?.onError,
       onSuccess: ({ agent, actions }, variables, context) => {
+        // FORK: Pendo track event. `DuplicateAgent` is this hook's only caller.
+        pendo.track('agent_duplicated', {
+          actionCount: actions.length,
+          sourceAgentId: variables.agent_id,
+          newAgentId: agent.id,
+        });
         ((keys: t.AgentListParams[]) => {
           keys.forEach((key) => {
             const listRes = queryClient.getQueryData<t.AgentListResponse>([QueryKeys.agents, key]);

@@ -7,10 +7,21 @@ import type { Favorite } from '~/store/favorites';
 import { useGetFavoritesQuery, useUpdateFavoritesMutation } from '~/data-provider';
 import { favoritesAtom } from '~/store';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import { logger } from '~/utils';
 
 /** Maximum number of favorites allowed (must match backend MAX_FAVORITES) */
 const MAX_FAVORITES = 50;
+
+/** FORK: the single pin or unpin being saved, for the Pendo `favorite_toggled` event. */
+type FavoriteChange = {
+  favoriteType: 'agent' | 'model' | 'spec';
+  action: 'added' | 'removed';
+  agentId?: string;
+  model?: string;
+  endpoint?: string;
+  spec?: string;
+};
 
 /**
  * Hook for managing user favorites (pinned agents, models, and model specs).
@@ -88,12 +99,29 @@ export default function useFavorites() {
   );
 
   const saveFavorites = useCallback(
-    async (newFavorites: typeof favorites) => {
+    async (newFavorites: typeof favorites, change?: FavoriteChange) => {
       const cleaned = cleanFavorites(newFavorites);
       setFavorites(cleaned);
       try {
         await updateFavoritesMutation.mutateAsync(cleaned);
+        // FORK: Pendo track event. A reorder passes no `change`.
+        if (change) {
+          pendo.track('favorite_toggled', {
+            outcome: 'success',
+            ...change,
+            favoritesCount: cleaned.length,
+          });
+        }
       } catch (error) {
+        // FORK: Pendo track event, e.g. `MAX_FAVORITES_EXCEEDED`.
+        if (change) {
+          pendo.track('favorite_toggled', {
+            outcome: 'error',
+            ...change,
+            favoritesCount: cleaned.length,
+            errorCode: (error as { response?: { data?: { code?: string } } })?.response?.data?.code,
+          });
+        }
         logger.error('Error updating favorites:', error);
         showToast({ message: getErrorMessage(error), status: 'error' });
         void getFavoritesQuery.refetch();
@@ -105,23 +133,23 @@ export default function useFavorites() {
   const addFavoriteAgent = (agentId: string) => {
     if (favorites.some((f) => f.agentId === agentId)) return;
     const newFavorites = [...favorites, { agentId }];
-    saveFavorites(newFavorites);
+    saveFavorites(newFavorites, { favoriteType: 'agent', action: 'added', agentId });
   };
 
   const removeFavoriteAgent = (agentId: string) => {
     const newFavorites = favorites.filter((f) => f.agentId !== agentId);
-    saveFavorites(newFavorites);
+    saveFavorites(newFavorites, { favoriteType: 'agent', action: 'removed', agentId });
   };
 
   const addFavoriteModel = (model: { model: string; endpoint: string }) => {
     if (favorites.some((f) => f.model === model.model && f.endpoint === model.endpoint)) return;
     const newFavorites = [...favorites, { model: model.model, endpoint: model.endpoint }];
-    saveFavorites(newFavorites);
+    saveFavorites(newFavorites, { favoriteType: 'model', action: 'added', ...model });
   };
 
   const removeFavoriteModel = (model: string, endpoint: string) => {
     const newFavorites = favorites.filter((f) => !(f.model === model && f.endpoint === endpoint));
-    saveFavorites(newFavorites);
+    saveFavorites(newFavorites, { favoriteType: 'model', action: 'removed', model, endpoint });
   };
 
   const isFavoriteAgent = (agentId: string | undefined | null) => {
@@ -140,12 +168,12 @@ export default function useFavorites() {
       return;
     }
     const newFavorites = [...favorites, { spec }];
-    saveFavorites(newFavorites);
+    saveFavorites(newFavorites, { favoriteType: 'spec', action: 'added', spec });
   };
 
   const removeFavoriteSpec = (spec: string) => {
     const newFavorites = favorites.filter((f) => f.spec !== spec);
-    saveFavorites(newFavorites);
+    saveFavorites(newFavorites, { favoriteType: 'spec', action: 'removed', spec });
   };
 
   const isFavoriteSpec = (spec: string | undefined | null) => {

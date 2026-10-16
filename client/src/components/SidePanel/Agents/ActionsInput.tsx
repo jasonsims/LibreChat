@@ -32,6 +32,7 @@ import { ActionsTable, ActionsTableSkeleton, columns } from './ActionsTable';
 import ActionCallback from '~/components/SidePanel/Builder/ActionCallback';
 import { useUpdateAgentAction } from '~/data-provider';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import { logger } from '~/utils';
 
 const debouncedValidation = debounce(
@@ -110,6 +111,15 @@ export default function ActionsInput({
   const updateAgentAction = useUpdateAgentAction({
     onSuccess(data) {
       const wasCreate = !action?.action_id;
+      // FORK: Pendo track event. The auth type only, never credentials or the raw spec.
+      pendo.track('agent_action_saved', {
+        isNew: wasCreate,
+        authType: data[1].metadata?.auth?.type ?? 'none',
+        functionCount: functions?.length ?? 0,
+        domain: data[1].metadata?.domain,
+        agent_id,
+        action_id: data[1].action_id,
+      });
       showToast({
         message: localize('com_assistants_update_actions_success'),
         status: 'success',

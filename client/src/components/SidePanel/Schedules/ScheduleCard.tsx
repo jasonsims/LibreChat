@@ -38,6 +38,7 @@ import { useAgentsMapContext } from '~/Providers';
 import ScheduleDialog from './ScheduleDialog';
 import { describeCadence } from './cadence';
 import { scheduleRowState } from './state';
+import { pendo } from '~/lib/pendo';
 import Consent from './Consent';
 
 interface ScheduleCardProps {
@@ -205,6 +206,14 @@ export default function ScheduleCard({ schedule, projectName, consentEnabled }: 
       setImmediateMCPFailure(outcomes.length > 0 ? { outcomes, lastRunKey } : null);
       const status = (error as { response?: { status?: number } } | undefined)?.response?.status;
       const blockedEnable = status === 400 && variables.payload.enabled === true;
+      // FORK: Pendo track event; the hook reports this switch's successes.
+      pendo.track('schedule_updated', {
+        updateSource: 'card_toggle',
+        outcome: blockedEnable ? 'blocked_enable' : 'error',
+        enabled: variables.payload.enabled,
+        httpStatus: status,
+        scheduleId: variables.id,
+      });
       showToast({
         message:
           scheduleMCPErrorMessage(error, localize) ??
@@ -227,12 +236,28 @@ export default function ScheduleCard({ schedule, projectName, consentEnabled }: 
   const handleRunNow = useCallback(() => {
     setImmediateMCPFailure(null);
     runSchedule.mutate(schedule.id, {
-      onSuccess: () => {
+      onSuccess: (data) => {
+        // FORK: Pendo track event.
+        pendo.track('schedule_run_triggered', {
+          outcome: 'started',
+          agent_id: schedule.agent_id,
+          scheduleId: schedule.id,
+          conversationId: data?.conversationId,
+        });
         showToast({ message: localize('com_ui_schedule_run_now_started'), status: 'success' });
         setMenuOpen(false);
       },
       onError: (error) => {
         const outcomes = scheduleMCPErrorOutcomes(error);
+        // FORK: Pendo track event. A 409 is a skip: balance, overlap or MCP re-auth.
+        const status = (error as { response?: { status?: number } } | undefined)?.response?.status;
+        pendo.track('schedule_run_triggered', {
+          outcome: status === 409 ? 'skipped' : 'error',
+          mcpFailureCount: outcomes.length,
+          httpStatus: status,
+          agent_id: schedule.agent_id,
+          scheduleId: schedule.id,
+        });
         setImmediateMCPFailure(outcomes.length > 0 ? { outcomes, lastRunKey } : null);
         showToast({
           message: scheduleMCPErrorMessage(error, localize) ?? localize('com_ui_error'),
@@ -240,11 +265,18 @@ export default function ScheduleCard({ schedule, projectName, consentEnabled }: 
         });
       },
     });
-  }, [schedule.id, runSchedule, showToast, localize, lastRunKey]);
+  }, [schedule.id, schedule.agent_id, runSchedule, showToast, localize, lastRunKey]);
 
   const confirmDelete = useCallback(() => {
     deleteSchedule.mutate(schedule.id, {
       onSuccess: () => {
+        // FORK: Pendo track event.
+        pendo.track('schedule_deleted', {
+          frequency: schedule.cadence.frequency,
+          wasEnabled: schedule.enabled,
+          agent_id: schedule.agent_id,
+          scheduleId: schedule.id,
+        });
         showToast({ message: localize('com_ui_deleted'), status: 'success' });
         setDeleteOpen(false);
       },
@@ -252,7 +284,15 @@ export default function ScheduleCard({ schedule, projectName, consentEnabled }: 
         showToast({ message: localize('com_ui_error'), status: 'error' });
       },
     });
-  }, [schedule.id, deleteSchedule, showToast, localize]);
+  }, [
+    schedule.id,
+    schedule.agent_id,
+    schedule.cadence.frequency,
+    schedule.enabled,
+    deleteSchedule,
+    showToast,
+    localize,
+  ]);
 
   const hour12 = useClockFormat();
   const weekStartsOn = useWeekStart();

@@ -47,6 +47,7 @@ import { useGetStartupConfig, useMCPServersQuery, useMCPToolsQuery } from '~/dat
 import { mcpServerInitStatesAtom, getServerInitState } from '~/store/mcp';
 import { getMCPReinitializeErrorMessage } from './errors';
 import { openInNewTab } from '~/utils';
+import { pendo } from '~/lib/pendo';
 
 export interface MCPServerDefinition {
   serverName: string;
@@ -321,7 +322,19 @@ export function useMCPServerManager({
       let oauthTimeoutMs = getMCPOAuthTimeout(initialOAuthTimeout, connectionData?.oauthTimeout);
       // Backstop only; the elapsed-time guard governs. Sized above the worst-case poll count.
       let maxAttempts = Math.ceil(oauthTimeoutMs / 5000) + 5;
+      /** FORK: Pendo track event for an OAuth connection this poller gives up on. Each caller
+       *  is a terminal branch that stops polling, so it fires once per attempt. */
+      const trackConnectionFailed = (failureReason: string) =>
+        pendo.track('mcp_server_connection_failed', {
+          failureReason,
+          oauthRequired: true,
+          elapsedMs: Date.now() - pollingStartedAt,
+          pollAttempts,
+          serverName,
+        });
       const stopForOAuthTimeout = (elapsedTime: number) => {
+        // FORK: Pendo track event.
+        trackConnectionFailed('oauth_timeout');
         console.warn(
           `[MCP Manager] OAuth timeout for ${serverName} after ${(elapsedTime / 1000).toFixed(0)}s (attempt ${pollAttempts})`,
         );
@@ -361,6 +374,8 @@ export function useMCPServerManager({
              * selected server and its tools are usable before the UI reports success. */
             const readiness = await reinitializeServer(serverName);
             if (!isMCPReadyAfterOAuth(readiness)) {
+              // FORK: Pendo track event.
+              trackConnectionFailed('reinitialize_failed');
               showToast({
                 message: getMCPReinitializeErrorMessage(readiness, localize),
                 status: 'error',
@@ -405,6 +420,13 @@ export function useMCPServerManager({
             if (timeoutId) {
               clearTimeout(timeoutId);
             }
+            // FORK: Pendo track event; `isReady` ends the polling.
+            pendo.track('mcp_server_connected', {
+              oauthRequired: true,
+              oauthDurationMs: Date.now() - pollingStartedAt,
+              pollAttempts,
+              serverName,
+            });
 
             showToast({
               message: localize('com_ui_mcp_authenticated_success', { 0: serverName }),
@@ -429,6 +451,8 @@ export function useMCPServerManager({
           }
 
           if (shouldFailMCPOAuthFallback(terminalFlowError, serverStatus)) {
+            // FORK: Pendo track event.
+            trackConnectionFailed('oauth_failed');
             showToast({
               message: localize('com_ui_mcp_init_failed'),
               status: 'error',
@@ -441,6 +465,8 @@ export function useMCPServerManager({
           }
 
           if (flowOutcome === 'failed') {
+            // FORK: Pendo track event.
+            trackConnectionFailed('oauth_failed');
             showToast({
               message: localize('com_ui_mcp_init_failed'),
               status: 'error',
@@ -464,6 +490,8 @@ export function useMCPServerManager({
             (serverStatus?.authorizationState === 'error' ||
               serverStatus?.connectionState === 'error')
           ) {
+            // FORK: Pendo track event.
+            trackConnectionFailed('connection_error');
             showToast({
               message: localize('com_ui_mcp_init_failed'),
               status: 'error',
@@ -521,6 +549,12 @@ export function useMCPServerManager({
           connectionDeferred: Boolean(response.connectionDeferred),
         });
         if (!response.success) {
+          // FORK: Pendo track event.
+          pendo.track('mcp_server_connection_failed', {
+            failureReason: 'reinitialize_failed',
+            oauthRequired: response.oauthRequired === true,
+            serverName,
+          });
           showToast({
             message: getMCPReinitializeErrorMessage(response, localize),
             status: 'error',
@@ -559,10 +593,21 @@ export function useMCPServerManager({
           });
 
           selectInitializedMCPServer(mcpValuesRef, setMCPValues, serverName);
+          // FORK: Pendo track event.
+          pendo.track('mcp_server_connected', {
+            oauthRequired: false,
+            connectionDeferred: Boolean(response.connectionDeferred),
+            serverName,
+          });
         }
         return response;
       } catch (error) {
         console.error(`[MCP Manager] Failed to initialize ${serverName}:`, error);
+        // FORK: Pendo track event.
+        pendo.track('mcp_server_connection_failed', {
+          failureReason: 'initialize_error',
+          serverName,
+        });
         showToast({
           message: localize('com_ui_mcp_init_failed', { 0: serverName }),
           status: 'error',
@@ -586,6 +631,12 @@ export function useMCPServerManager({
     (serverName: string) => {
       cancelMCPOAuth(serverName, {
         onSuccess: () => {
+          // FORK: Pendo track event.
+          pendo.track('mcp_server_connection_failed', {
+            failureReason: 'oauth_cancelled',
+            oauthRequired: true,
+            serverName,
+          });
           cleanupServerState(serverName);
           Promise.all([
             queryClient.invalidateQueries([QueryKeys.mcpServers]),

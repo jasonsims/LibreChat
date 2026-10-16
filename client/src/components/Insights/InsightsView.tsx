@@ -23,6 +23,7 @@ import OpenSidebar from '~/components/Chat/Menus/OpenSidebar';
 import useDrawerViewport from '~/hooks/Nav/useDrawerViewport';
 import { LocalizedDateRangePicker } from '~/components/ui';
 import { getRollingDateRange } from './dateRange';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 
 type ShortcutRange = Exclude<InsightsRange, 'custom'>;
@@ -45,6 +46,9 @@ const ranges: Array<{ value: ShortcutRange; labelKey: TranslationKeys; days: num
 ];
 const dateRangeSelectionDelayMs = 350;
 const searchDelayMs = 350;
+/** FORK: the last filter set reported to Pendo. Module scope, so a remount or refetch of the
+ *  same view is not reported again. */
+let lastTrackedInsightsView: string | null = null;
 
 function formatValue(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
@@ -590,6 +594,28 @@ export default function InsightsView() {
   const insights = useInsightsQuery(insightsParams, {
     enabled: !!user && insightsFeatureEnabled,
     retry: false,
+    onSuccess: (report) => {
+      const viewKey = JSON.stringify(insightsParams);
+      if (viewKey === lastTrackedInsightsView) {
+        return;
+      }
+      lastTrackedInsightsView = viewKey;
+      // FORK: Pendo track event, once per filter set: a refetch of the same view is not new.
+      pendo.track('insights_report_viewed', {
+        range: insightsParams.range,
+        isCustomRange: customDateRange != null,
+        agentFilterCount: selectedAgentIds.length,
+        hasSearch: search !== '',
+        page,
+        totalConversations: report.summary.totalConversations,
+        totalUsers: report.summary.totalUsers,
+        totalMessages: report.summary.totalMessages,
+        totalTokens: report.summary.totalTokens,
+        timeZone,
+        fromTimestamp: insightsParams.fromTimestamp,
+        toTimestamp: insightsParams.toTimestamp,
+      });
+    },
   });
   const data = insights.data;
   const insightsStatus = responseStatus(insights.error);

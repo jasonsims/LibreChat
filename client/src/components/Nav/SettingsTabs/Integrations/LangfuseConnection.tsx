@@ -22,6 +22,7 @@ import {
   useTestLangfuseConnectionMutation,
 } from '~/data-provider';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 type ConnectionTestState = 'idle' | 'unverified' | 'checking' | 'connected' | 'failed';
 
@@ -261,6 +262,14 @@ export default function LangfuseConnection() {
     connectionTestRequestRef.current += 1;
     updateMutation.mutate(payload, {
       onSuccess: (nextStatus) => {
+        // FORK: Pendo track event. Never the public or secret key.
+        pendo.track('langfuse_connection_saved', {
+          changeType: 'credentials_saved',
+          enabled: nextStatus.enabled === true,
+          secretUpdated: !!trimmedSecretKey,
+          connectionTestState,
+          destination: nextStatus.destination,
+        });
         autoTestedConnectionRef.current = getStoredConnectionTestKey(nextStatus);
         setConnectionStatus(nextStatus);
         setConnectionTestState('connected');
@@ -344,6 +353,14 @@ export default function LangfuseConnection() {
         },
         {
           onSuccess: (nextStatus) => {
+            // FORK: Pendo track event, even when a newer request supersedes the UI update.
+            pendo.track('langfuse_connection_saved', {
+              changeType: nextEnabled ? 'enabled' : 'disabled',
+              enabled: nextStatus.enabled === true,
+              secretUpdated: false,
+              connectionTestState,
+              destination: nextStatus.destination,
+            });
             if (requestId !== connectionTestRequestRef.current) {
               return;
             }

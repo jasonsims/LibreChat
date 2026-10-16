@@ -52,6 +52,7 @@ import AgentConfig from './AgentConfig';
 import AgentSelect from './AgentSelect';
 import AgentFooter from './AgentFooter';
 import ModelPanel from './ModelPanel';
+import { pendo } from '~/lib/pendo';
 
 /* Helpers */
 function getUpdateToastMessage(
@@ -462,6 +463,20 @@ export const mayHavePersistedChange = (
   return fields.some((field) => !isEqual(previous[field], updated[field]));
 };
 
+/** FORK: the submitted fields the save changed, compared like `mayHavePersistedChange`, for the
+ *  Pendo `agent_updated` event. `undefined` when the comparison cannot be trusted. */
+const getChangedFields = (
+  submitted?: AgentUpdateParams,
+  previous?: Agent,
+  updated?: Agent,
+): string[] | undefined => {
+  if (!submitted || !previous || !updated) {
+    return undefined;
+  }
+  const fields = Object.keys(submitted) as Array<keyof AgentUpdateParams & keyof Agent>;
+  return fields.filter((field) => !isEqual(previous[field], updated[field]));
+};
+
 export default function AgentPanel() {
   const localize = useLocalize();
   const { user } = useAuthContext();
@@ -750,6 +765,21 @@ export default function AgentPanel() {
         !persistedEdit &&
         previousVersionRef.current !== undefined &&
         data.version === previousVersionRef.current;
+      // FORK: Pendo track event, before the refs are cleared below.
+      pendo.track('agent_updated', {
+        noVersionChange,
+        changedFields: getChangedFields(
+          submittedRef.current.payload,
+          submittedRef.current.previous,
+          data,
+        ),
+        version: data.version,
+        provider: data.provider,
+        model: data.model,
+        toolCount: data.tools?.length ?? 0,
+        avatarAction: avatarActionState,
+        agent_id: data.id,
+      });
       const toastMessage = getUpdateToastMessage(
         noVersionChange,
         avatarActionState,
@@ -810,6 +840,23 @@ export default function AgentPanel() {
 
   const create = useCreateAgentMutation({
     onSuccess: async (data) => {
+      // FORK: Pendo track event. Never the instructions' text.
+      pendo.track('agent_created', {
+        provider: data.provider,
+        model: data.model,
+        toolCount: data.tools?.length ?? 0,
+        hasInstructions: !!data.instructions || data.instructionsPrompt != null,
+        instructionsSource: data.instructionsPrompt != null ? 'prompt' : 'inline',
+        category: data.category,
+        subagentCount: data.agent_ids?.length ?? 0,
+        edgeCount: data.edges?.length ?? 0,
+        conversationStarterCount: data.conversation_starters?.length ?? 0,
+        artifacts: data.artifacts,
+        skillsEnabled: data.skills_enabled === true,
+        recursionLimit: data.recursion_limit,
+        hasAvatar: getValues('avatar_action') === 'upload',
+        agent_id: data.id,
+      });
       syncSavedInstructions(data);
       syncSavedStarters(data);
       setCurrentAgentId(data.id);

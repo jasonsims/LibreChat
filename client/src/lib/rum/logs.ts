@@ -12,6 +12,7 @@ import {
 import { setRemoteLogSink } from '~/utils/logger';
 import { getActiveTraceContext } from './trace';
 import { normalizeRumPath } from './routes';
+import { pendo } from '~/lib/pendo';
 
 export type ClientLogLevel = 'info' | 'warn' | 'error';
 type AttributeValue = string | number | boolean;
@@ -842,7 +843,29 @@ export function recordClientEvent(
 }
 
 /** Reports an error caught by an error boundary, once per error object. */
+/** FORK: errors already sent to Pendo; a boundary that renders again reports the same one. */
+const pendoReportedErrors = new WeakSet<object>();
+
+/** FORK: Pendo track event for a caught render failure, whether or not RUM client logs are on.
+ *  The boundary and the error's type only: a message or stack can carry user content. */
+function trackBoundaryError(boundary: string, error: unknown, chunkLoad: boolean): void {
+  if (typeof error === 'object' && error !== null) {
+    if (pendoReportedErrors.has(error)) {
+      return;
+    }
+    pendoReportedErrors.add(error);
+  }
+  pendo.track('client_error_boundary_triggered', {
+    boundary,
+    isChunkLoadError: chunkLoad,
+    errorType: error instanceof Error ? error.name : typeof error,
+    route: normalizeRumPath(window.location.pathname),
+  });
+}
+
 export function reportBoundaryError(boundary: string, error: unknown, chunkLoad = false): void {
+  // FORK: Pendo track event.
+  trackBoundaryError(boundary, error, chunkLoad);
   if (!exporter) {
     return;
   }

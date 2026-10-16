@@ -17,6 +17,7 @@ import { useUpdateMemoryMutation, useMemoriesQuery } from '~/data-provider';
 import { getMemoryAddress, getMemoryUpdateAddress } from './address';
 import { useLocalize, useHasAccess, useClockFormat } from '~/hooks';
 import MemoryUsageBadge from './MemoryUsageBadge';
+import { pendo } from '~/lib/pendo';
 
 interface MemoryEditDialogProps {
   memory: TUserMemory | null;
@@ -55,7 +56,14 @@ export default function MemoryEditDialog({
   });
 
   const { mutate: updateMemory, isLoading } = useUpdateMemoryMutation({
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      // FORK: Pendo track event. Never the key or value.
+      pendo.track('memory_updated', {
+        scope: variables?.agentId ? 'agent' : 'personal',
+        keyChanged: key.trim() !== originalKey,
+        valueLength: variables?.value.length,
+        agentId: variables?.agentId,
+      });
       showToast({
         message: localize('com_ui_saved'),
         status: 'success',

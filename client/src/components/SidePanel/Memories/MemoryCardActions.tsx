@@ -18,6 +18,7 @@ import MemoryEditDialog from './MemoryEditDialog';
 import { rowActionSlotClasses } from '~/utils';
 import { getMemoryAddress } from './address';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 interface MemoryCardActionsProps {
   memory: TUserMemory;
@@ -41,6 +42,12 @@ export default function MemoryCardActions({ memory }: MemoryCardActionsProps) {
       { ...memoryAddress, agentId: memory.agentId },
       {
         onSuccess: () => {
+          // FORK: Pendo track event.
+          pendo.track('memory_deleted', {
+            scope: memory.agentId ? 'agent' : 'personal',
+            tokenCount: memory.tokenCount,
+            agentId: memory.agentId,
+          });
           showToast({ message: localize('com_ui_deleted'), status: 'success' });
           setDeleteOpen(false);
         },

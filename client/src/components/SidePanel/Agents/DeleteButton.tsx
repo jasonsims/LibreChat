@@ -17,6 +17,7 @@ import { useAuthContext, useGetAgentsConfig, useLocalize } from '~/hooks';
 import { logger, getDefaultAgentFormValues } from '~/utils';
 import { useDeleteAgentMutation } from '~/data-provider';
 import { isEphemeralAgent } from '~/common';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 function DeleteButton({
@@ -39,6 +40,12 @@ function DeleteButton({
   const deleteAgent = useDeleteAgentMutation({
     onSuccess: (_, vars, context) => {
       const updatedList = context as Agent[] | undefined;
+      // FORK: Pendo track event.
+      pendo.track('agent_deleted', {
+        wasActiveInConversation: vars.agent_id === conversationAgentId,
+        remainingAgentCount: updatedList?.length,
+        agent_id: vars.agent_id,
+      });
       if (!updatedList) {
         return;
       }

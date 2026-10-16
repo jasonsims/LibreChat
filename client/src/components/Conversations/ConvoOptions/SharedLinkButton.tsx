@@ -31,6 +31,7 @@ import GenericGrantAccessDialog from '~/components/Sharing/GenericGrantAccessDia
 import { useHasAccess, useResourcePermissions, useLocalize } from '~/hooks';
 import { NotificationSeverity } from '~/common';
 import { buildShareLinkUrl } from '~/utils';
+import { pendo } from '~/lib/pendo';
 
 type SharePublicationErrorCode = 'TARGET_MESSAGE_NOT_FOUND' | 'NO_MESSAGES';
 
@@ -165,6 +166,8 @@ export default function SharedLinkButton({
       const updateShare = await publishWithTailRetry(resolvePublicationTarget, (resolvedTargetId) =>
         mutateAsync({ shareId, targetMessageId: resolvedTargetId, snapshotFiles }),
       );
+      // FORK: Pendo track event. No `shareId`: it is the public link's bearer token.
+      pendo.track('shared_link_updated', { snapshotFiles: snapshotFiles === true, conversationId });
       setRefreshAnimationId((animationId) => animationId + 1);
       setSharedLink(generateShareLink(updateShare.shareId));
       setShowUpdateDialog(false);
@@ -186,6 +189,12 @@ export default function SharedLinkButton({
       const share = await publishWithTailRetry(resolvePublicationTarget, (resolvedTargetId) =>
         mutate({ conversationId, targetMessageId: resolvedTargetId, snapshotFiles }),
       );
+      // FORK: Pendo track event. No `shareId`: it is the public link's bearer token.
+      pendo.track('shared_link_created', {
+        hasTargetMessage: targetMessageId != null || resolveTargetMessageId != null,
+        snapshotFiles: snapshotFiles === true,
+        conversationId,
+      });
       setSharedLink(generateShareLink(share.shareId));
     } catch (error) {
       console.error('Failed to create shared link:', error);
@@ -202,6 +211,8 @@ export default function SharedLinkButton({
 
     try {
       await deleteMutation.mutateAsync({ shareId });
+      // FORK: Pendo track event. No `shareId`: it is the public link's bearer token.
+      pendo.track('shared_link_deleted', { source: 'share_dialog', conversationId });
       setShowDeleteDialog(false);
       setSharedLink('');
       showToast({

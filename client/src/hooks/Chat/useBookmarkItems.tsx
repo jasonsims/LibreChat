@@ -17,6 +17,7 @@ import { BookmarkEditDialog } from '~/components/Bookmarks';
 import { useBookmarkSuccess, useLocalize } from '~/hooks';
 import { isTemporaryConversation, logger } from '~/utils';
 import { NotificationSeverity } from '~/common';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 export type UseBookmarkItemsResult = {
@@ -67,6 +68,13 @@ export default function useBookmarkItems({
 
   const mutation = useTagConversationMutation(conversationId, {
     onSuccess: (newTags: string[], vars) => {
+      // FORK: Pendo track event.
+      pendo.track('conversation_bookmark_toggled', {
+        action: newTags.includes(vars.tag) ? 'added' : 'removed',
+        tag: vars.tag,
+        tagCount: newTags.length,
+        conversationId,
+      });
       updateConvoTags(newTags);
       focusTag(vars.tag);
     },

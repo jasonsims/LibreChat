@@ -19,6 +19,7 @@ import { resolveAbortSteerTarget } from '~/utils';
 import useNewConvo from '~/hooks/useNewConvo';
 import { getMessageCacheIds } from './cache';
 import { useAbortCleanup } from './abort';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 // this to be set somewhere else
@@ -244,6 +245,16 @@ export default function useChatHelpers(index = 0, paramId?: string): ChatContrac
         console.log('[useChatHelpers] Abort mutation succeeded');
         const canUseV2AbortResponse =
           activeGenerationProtocolVersion === 2 && supportsGenerationProtocolV2(response);
+        // FORK: Pendo track event. A stop that lost the race to completion is `already_settled`.
+        pendo.track('chat_generation_stopped', {
+          stopOutcome:
+            canUseV2AbortResponse && response?.settled === true ? 'already_settled' : 'aborted',
+          endpoint: actualEndpoint,
+          endpointType,
+          restoredSteerCount: response?.pendingSteers?.length ?? 0,
+          generationProtocolVersion: canUseV2AbortResponse ? 2 : 1,
+          conversationId,
+        });
         /** Conversation-scoped active-job ids cannot be removed optimistically:
          * a newer generation may have started while this response was in flight.
          * Refetch instead so that replacement remains represented. */
@@ -318,6 +329,13 @@ export default function useChatHelpers(index = 0, paramId?: string): ChatContrac
         const status = (error as { response?: { status?: number } } | null | undefined)?.response
           ?.status;
         if (status === 404) {
+          // FORK: Pendo track event.
+          pendo.track('chat_generation_stopped', {
+            stopOutcome: 'job_not_found',
+            endpoint: actualEndpoint,
+            endpointType,
+            conversationId,
+          });
           // A missing job cannot still consume the interrupt follow-up. Release
           // the armed queue even if its ordinary terminal frame raced cleanup.
           signalInterruptDrain(conversationId, activeGenerationCreatedAt);
@@ -335,6 +353,13 @@ export default function useChatHelpers(index = 0, paramId?: string): ChatContrac
       // For assistants endpoints, just clear submissions (existing behavior)
       console.log('[useChatHelpers] Assistants endpoint, just clearing submissions');
       clearAllSubmissions();
+      // FORK: Pendo track event.
+      pendo.track('chat_generation_stopped', {
+        stopOutcome: 'client_cleared',
+        endpoint: actualEndpoint,
+        endpointType,
+        conversationId,
+      });
     }
   }, [
     conversationId,

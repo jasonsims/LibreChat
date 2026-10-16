@@ -18,6 +18,7 @@ import {
 } from '@librechat/client';
 import type { TUser } from 'librechat-data-provider';
 import { useUploadAvatarMutation, useGetFileConfig } from '~/data-provider';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 import { useLocalize } from '~/hooks';
 import store from '~/store';
@@ -77,6 +78,13 @@ function Avatar() {
 
   const { mutate: uploadAvatar, isLoading: isUploading } = useUploadAvatarMutation({
     onSuccess: (data) => {
+      // FORK: Pendo track event. The source image's type and size; never the image.
+      pendo.track('avatar_uploaded', {
+        fileType: image instanceof File ? image.type : undefined,
+        fileSizeBytes: image instanceof File ? image.size : undefined,
+        scale,
+        rotation,
+      });
       showToast({ message: localize('com_ui_upload_success') });
       setUser((prev) => ({ ...prev, avatar: data.url }) as TUser);
     },

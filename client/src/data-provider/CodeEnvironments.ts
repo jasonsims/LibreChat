@@ -29,6 +29,7 @@ import {
 import { codeEnvironmentReconciliationsAtom } from '~/store/codeEnvironmentReconciliation';
 import { hasSameCodeDecision } from '~/hooks/Agents/codeDecision';
 import { retryTransientQuery } from './retry';
+import { pendo } from '~/lib/pendo';
 
 export type CodeEnvironmentPairingResponse = TCodeEnvironmentPairingResponse;
 
@@ -90,7 +91,13 @@ export function usePairCodeEnvironmentMutation() {
     Error,
     { name: string; controlPlaneId: string }
   >([MutationKeys.pairCodeEnvironment], dataService.pairCodeEnvironment, {
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
+      // FORK: Pendo track event. `CodeEnvironments` is this hook's only caller; never the code.
+      pendo.track('code_environment_paired', {
+        nameLength: variables?.name?.length,
+        pairingExpiresAt: result?.pairing?.expiresAt,
+        controlPlaneId: variables?.controlPlaneId,
+      });
       queryClient.invalidateQueries([QueryKeys.codeEnvironments]);
       queryClient.invalidateQueries([QueryKeys.endpoints]);
     },

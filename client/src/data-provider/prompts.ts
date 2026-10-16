@@ -13,6 +13,7 @@ import {
   deletePromptGroup,
   removeGroupFromAll,
 } from '~/utils';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 export const useUpdatePromptGroup = (
@@ -185,6 +186,13 @@ export const useDeletePrompt = (
     mutationFn: (payload: t.TDeletePromptVariables) => dataService.deletePrompt(payload),
     ...rest,
     onSuccess: (response, variables, context) => {
+      // FORK: Pendo track event. Deleting a group's last version deletes the group.
+      pendo.track('prompt_deleted', {
+        deleteScope: 'version',
+        groupDeleted: response.promptGroup != null,
+        promptGroupId: variables.groupId,
+        promptId: variables._id,
+      });
       if (response.promptGroup) {
         const promptGroupId = response.promptGroup.id;
         queryClient.setQueryData<t.PromptGroupListData>(
@@ -245,6 +253,12 @@ export const useDeletePromptGroup = (
       dataService.deletePromptGroup(variables.id),
     ...rest,
     onSuccess: (response, variables, context) => {
+      // FORK: Pendo track event.
+      pendo.track('prompt_deleted', {
+        deleteScope: 'group',
+        groupDeleted: true,
+        promptGroupId: variables.id,
+      });
       queryClient.setQueryData<t.PromptGroupListData>(
         [QueryKeys.promptGroups, name, category, pageSize],
         (data) => {
@@ -363,12 +377,13 @@ export const useMakePromptProduction = (options?: t.MakePromptProductionOptions)
   });
 };
 
-export const useRecordPromptUsage = (): UseMutationResult<
-  { numberOfGenerations: number },
-  unknown,
-  string,
-  unknown
-> => {
+/**
+ * FORK: `source` names the entry point for the Pendo `prompt_used` event. Callers pass theirs;
+ * `VariableForm`, which sends a prompt with variables from any of them, relies on the default.
+ */
+export const useRecordPromptUsage = (
+  source = 'variable_form',
+): UseMutationResult<{ numberOfGenerations: number }, unknown, string, unknown> => {
   const queryClient = useQueryClient();
   const name = useRecoilValue(store.promptsName);
   const category = useRecoilValue(store.promptsCategory);
@@ -377,6 +392,12 @@ export const useRecordPromptUsage = (): UseMutationResult<
   return useMutation({
     mutationFn: (groupId: string) => dataService.recordPromptGroupUsage(groupId),
     onSuccess: (data, groupId) => {
+      // FORK: Pendo track event, alongside the server-side usage counter.
+      pendo.track('prompt_used', {
+        source,
+        numberOfGenerations: data.numberOfGenerations,
+        promptGroupId: groupId,
+      });
       const update = { _id: groupId, numberOfGenerations: data.numberOfGenerations };
       queryClient.setQueryData<t.PromptGroupListData>(
         [QueryKeys.promptGroups, name, category, pageSize],

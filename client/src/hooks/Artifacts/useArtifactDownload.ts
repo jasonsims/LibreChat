@@ -13,6 +13,7 @@ import {
 import useArtifactProps from '~/hooks/Artifacts/useArtifactProps';
 import { useArtifactCode } from '~/Providers/EditorContext';
 import useLocalize from '~/hooks/useLocalize';
+import { pendo } from '~/lib/pendo';
 
 export interface ArtifactDownload {
   /** Briefly true after a file actually reached the user, for the check-mark swap. */
@@ -85,10 +86,17 @@ export default function useArtifactDownload(artifact: Artifact): ArtifactDownloa
   });
 
   const markDownloaded = useCallback(() => {
+    // FORK: Pendo track event. Both download paths call this only once bytes reached the user.
+    pendo.track('artifact_downloaded', {
+      artifactType: artifact.type,
+      downloadMethod: downloadOriginalFile ? 'original_file' : 'content_blob',
+      hasEdits,
+      storageSource: downloadOriginalFile ? download?.source : undefined,
+    });
     setIsDownloaded(true);
     clearTimeout(resetTimer.current);
     resetTimer.current = setTimeout(() => setIsDownloaded(false), 3000);
-  }, []);
+  }, [artifact.type, download?.source, downloadOriginalFile, hasEdits]);
 
   const handleDownload = useCallback(
     async (event: React.MouseEvent<HTMLElement>): Promise<boolean> => {

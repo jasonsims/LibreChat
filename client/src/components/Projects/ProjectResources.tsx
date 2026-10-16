@@ -47,6 +47,7 @@ import { useAgentCapabilities, useGetAgentsConfig, useHasAccess, useLocalize } f
 import FileGrid, { FILE_VIEWS } from '~/components/Chat/Input/Composer/Files';
 import { CatalogContent } from '~/components/Chat/Input/Composer/Catalog';
 import { NotificationSeverity, type LocalizeFunction } from '~/common';
+import { pendo } from '~/lib/pendo';
 type ProjectResourcesProps = {
   project: { _id: string; fileCount?: number };
 };
@@ -81,6 +82,9 @@ const getAssociationErrorMessage = (
   (error as TError | undefined)?.response?.status === 409
     ? localize('com_ui_project_file_limit', { count: fileLimit })
     : localize('com_ui_project_file_attach_error');
+/** FORK: the Pendo `project_file_added` outcome of a failed attach, read like the message above. */
+const getAssociationOutcome = (error: unknown): string =>
+  (error as TError | undefined)?.response?.status === 409 ? 'limit_reached' : 'attach_failed';
 function statusLabel(localize: LocalizeFunction, availability: TChatProjectFile['availability']) {
   return availability === 'ready'
     ? localize('com_ui_project_file_ready')
@@ -203,6 +207,17 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
     return count;
   };
   const hasFileCapacity = getEffectiveFileCount() < projectFileLimit;
+  /** FORK: Pendo track event for a file joining (or failing to join) the project's knowledge. */
+  const trackFileAdded = (outcome: string, fileSource: string, file?: File) =>
+    pendo.track('project_file_added', {
+      outcome,
+      fileSource,
+      fileType: file?.type,
+      fileSizeBytes: file?.size,
+      projectFileCount: fileCount,
+      projectFileLimit,
+      projectId: project._id,
+    });
 
   useEffect(() => {
     const remaining = optimisticAttachedIds.filter((fileId) => !attachedIds.has(fileId));
@@ -241,9 +256,13 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
   const addExistingFile = async (fileId: string) => {
     try {
       await addFile.mutateAsync({ projectId: project._id, file_id: fileId });
+      // FORK: Pendo track event.
+      trackFileAdded('success', 'existing_file');
       setIsPickerOpen(false);
       setIsFileMenuOpen(false);
     } catch (error: unknown) {
+      // FORK: Pendo track event.
+      trackFileAdded(getAssociationOutcome(error), 'existing_file');
       showToast({
         message: getAssociationErrorMessage(error, localize, projectFileLimit),
         severity: NotificationSeverity.ERROR,
@@ -276,12 +295,20 @@ export default function ProjectResources({ project }: ProjectResourcesProps) {
       }
       uploaded = true;
       await addFile.mutateAsync({ projectId: project._id, file_id: fileId });
+      // FORK: Pendo track event.
+      trackFileAdded('success', 'new_upload', item.file);
       pendingUploadIdsRef.current.delete(item.id);
       optimisticAttachedIdsRef.current.add(fileId);
       setOptimisticAttachedIds(Array.from(optimisticAttachedIdsRef.current));
       setUploading((current) => current.filter((candidate) => candidate.id !== item.id));
     } catch (error: unknown) {
       pendingUploadIdsRef.current.delete(item.id);
+      // FORK: Pendo track event.
+      trackFileAdded(
+        uploaded ? getAssociationOutcome(error) : 'upload_failed',
+        'new_upload',
+        item.file,
+      );
       const errorMessage = uploaded
         ? getAssociationErrorMessage(error, localize, projectFileLimit)
         : getUploadErrorMessage(error, localize);

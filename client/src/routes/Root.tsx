@@ -49,6 +49,7 @@ import ChatSettingsProvider from './ChatSettings';
 import { useHealthCheck } from '~/data-provider';
 import Settings from '~/components/Nav/Settings';
 import { Banner } from '~/components/Banners';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 /** Isolates the unseen-reply subscription so its updates re-render only this node, not `Root`. */
@@ -163,10 +164,20 @@ function RootLayout() {
   }, [isSmallScreen]);
 
   const handleAcceptTerms = () => {
+    // FORK: Pendo track event. The modal calls this once the server records the acceptance.
+    pendo.track('terms_accepted', {
+      accepted: true,
+      termsTitle: config?.interface?.termsOfService?.modalTitle,
+    });
     setShowTerms(false);
   };
 
   const handleDeclineTerms = () => {
+    // FORK: Pendo track event, before the decline signs the user out.
+    pendo.track('terms_accepted', {
+      accepted: false,
+      termsTitle: config?.interface?.termsOfService?.modalTitle,
+    });
     setShowTerms(false);
     logout('/login?redirect=false');
   };

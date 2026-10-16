@@ -27,6 +27,7 @@ import {
 import { useRegisterPasskeyMutation } from '~/data-provider';
 import { importWithRecovery } from '~/lib/assets/lazy';
 import useLocalize from '~/hooks/useLocalize';
+import { pendo } from '~/lib/pendo';
 
 async function loadWebAuthn() {
   return importWithRecovery(() => import('@simplewebauthn/browser'));
@@ -142,6 +143,13 @@ export function usePasskeySignIn({ enabled }: { enabled: boolean }) {
         navigate(`/login/2fa?tempToken=${encodeURIComponent(result.tempToken)}`, { replace: true });
         return;
       }
+      // FORK: Pendo track event, before the full-page redirect.
+      pendo.track('user_logged_in', {
+        authMethod: 'passkey',
+        secondFactor: 'none',
+        role: result.user?.role,
+        twoFactorEnabled: result.user?.twoFactorEnabled === true,
+      });
       window.location.href = resolvePostLoginHref();
     },
     [navigate],
@@ -281,6 +289,12 @@ export function usePasskeyRegistration() {
           credential,
           password,
           name: localize(defaultNameKey(credential.response?.transports)),
+        });
+        // FORK: Pendo track event.
+        pendo.track('passkey_registered', {
+          deviceType: passkey.deviceType,
+          backedUp: passkey.backedUp,
+          transports: passkey.transports.join(','),
         });
         showToast({ message: localize('com_ui_passkey_added'), status: 'success' });
         return passkey;

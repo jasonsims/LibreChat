@@ -9,6 +9,7 @@ import { Button, Label, Checkbox, useToastContext } from '@librechat/client';
 import { TranslationKeys, useLocalize, useNavigateToConvo } from '~/hooks';
 import { useForkConvoMutation } from '~/data-provider';
 import { hoverButtonClasses } from './styles';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 interface PopoverButtonProps {
@@ -233,7 +234,17 @@ function Fork({
   const buttonStyle = hoverButtonClasses({ isActive, isLast });
 
   const forkConvo = useForkConvoMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      // FORK: Pendo track event.
+      pendo.track('conversation_forked', {
+        forkSource: 'message_menu',
+        forkOption: variables?.option,
+        splitAtTarget: variables?.splitAtTarget === true,
+        rememberedDefault: remember,
+        messageCount: data?.messages?.length ?? 0,
+        sourceConversationId: variables?.conversationId,
+        newConversationId: data?.conversation?.conversationId,
+      });
       navigateToConvo(data.conversation);
       showToast({
         message: localize('com_ui_fork_success'),

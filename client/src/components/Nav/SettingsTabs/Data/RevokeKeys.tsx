@@ -9,6 +9,7 @@ import {
   Spinner,
 } from '@librechat/client';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 export const RevokeKeys = ({
   disabled = false,
@@ -22,6 +23,8 @@ export const RevokeKeys = ({
   const revokeKeysMutation = useRevokeAllUserKeysMutation();
 
   const handleSuccess = () => {
+    // FORK: Pendo track event.
+    pendo.track('endpoint_api_key_revoked', { scope: 'all' });
     if (!setDialogOpen) {
       return;
     }

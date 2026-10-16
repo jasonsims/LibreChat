@@ -69,6 +69,7 @@ import { isLiveSubagentStatus } from './status';
 import { cn, renderAgentAvatar } from '~/utils';
 import { getSubagentPrompt } from './prompt';
 import { useChatSurface } from './surface';
+import { pendo } from '~/lib/pendo';
 
 const EVENT_TASK_PAGE_SIZE = 3;
 const TERMINAL_CONTROL_REASONS = new Set([
@@ -337,7 +338,15 @@ export default function SubagentThreadPanel({ selection }: { selection: ActiveSu
    *  are the new actor's, so this falls back to what was there at submission. */
   const continuationRef = useRef<{ identity: string; text: string } | null>(null);
   const continueChat = useForkConvoMutation({
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
+      // FORK: Pendo track event.
+      pendo.track('conversation_forked', {
+        forkSource: 'subagent_thread',
+        forkOption: variables?.option,
+        messageCount: result?.messages?.length ?? 0,
+        sourceConversationId: variables?.conversationId,
+        newConversationId: result?.conversation?.conversationId,
+      });
       const continuedConversationId = result.conversation?.conversationId;
       /** The server keeps child threads view-only (`CHILD_THREAD_READ_ONLY_ERROR`),
        *  so a continuation is a real conversation forked from the thread. Hand

@@ -10,6 +10,7 @@ import { useToolCallMutation } from '~/data-provider';
 import { cn, normalizeLanguage } from '~/utils';
 import { useMessageContext } from '~/Providers';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 type RunState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -25,7 +26,28 @@ const RunCode: React.FC<CodeBarProps & { iconOnly?: boolean }> = React.memo(
     const localize = useLocalize();
     const { showToast } = useToastContext();
     const execute = useToolCallMutation(Tools.execute_code, {
-      onError: () => {
+      onSuccess: (response, variables) => {
+        // FORK: Pendo track event.
+        pendo.track('code_block_executed', {
+          outcome: 'success',
+          language: variables?.lang,
+          codeLength: variables?.code.length,
+          attachmentCount: response?.attachments?.length ?? 0,
+          isTemporary: variables?.isTemporary === true,
+          conversationId: variables?.conversationId,
+          messageId: variables?.messageId,
+        });
+      },
+      onError: (_error, variables) => {
+        // FORK: Pendo track event.
+        pendo.track('code_block_executed', {
+          outcome: 'error',
+          language: variables?.lang,
+          codeLength: variables?.code.length,
+          isTemporary: variables?.isTemporary === true,
+          conversationId: variables?.conversationId,
+          messageId: variables?.messageId,
+        });
         showToast({ message: localize('com_ui_run_code_error'), status: 'error' });
       },
     });

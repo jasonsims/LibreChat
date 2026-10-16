@@ -15,6 +15,7 @@ import {
 import { useVerifyTwoFactorTempMutation } from '~/data-provider';
 import BackupCodeInput from './BackupCodeInput';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 interface VerifyPayload {
   tempToken: string;
@@ -42,8 +43,13 @@ const TwoFactorScreen: React.FC = React.memo(() => {
   const [useBackup, setUseBackup] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { mutate: verifyTempMutate } = useVerifyTwoFactorTempMutation({
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       if (result.token != null && result.token !== '') {
+        // FORK: Pendo track event, before the full-page redirect.
+        pendo.track('user_logged_in', {
+          secondFactor: variables?.backupCode ? 'backup_code' : 'totp',
+          twoFactorEnabled: true,
+        });
         window.location.href = '/';
       }
     },

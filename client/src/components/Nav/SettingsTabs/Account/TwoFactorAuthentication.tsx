@@ -27,6 +27,7 @@ import { SetupPhase, QRPhase, VerifyPhase, BackupPhase, DisablePhase } from './T
 import { DisableTwoFactorToggle } from './DisableTwoFactorToggle';
 import { useAuthContext, useLocalize } from '~/hooks';
 import { useTwoFactorError } from './errors';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 export type Phase = 'setup' | 'qr' | 'verify' | 'backup' | 'disable';
@@ -119,7 +120,15 @@ const TwoFactorAuthentication: React.FC = () => {
           confirm2FAMutate(
             { token: verificationToken },
             {
-              onSuccess: () => setPhase('backup'),
+              onSuccess: () => {
+                // FORK: Pendo track event; the server has enabled 2FA at this point.
+                pendo.track('two_factor_enabled', {
+                  enrollmentContext: 'settings',
+                  backupCodeCount: backupCodes.length,
+                  isTwoFactorRequired,
+                });
+                setPhase('backup');
+              },
               onError: (error) => showError(error, 'com_ui_2fa_invalid'),
             },
           );
@@ -127,7 +136,16 @@ const TwoFactorAuthentication: React.FC = () => {
         onError: (error) => showError(error, 'com_ui_2fa_invalid'),
       },
     );
-  }, [verificationToken, verify2FAMutate, confirm2FAMutate, localize, showToast, showError]);
+  }, [
+    verificationToken,
+    verify2FAMutate,
+    confirm2FAMutate,
+    localize,
+    showToast,
+    showError,
+    backupCodes.length,
+    isTwoFactorRequired,
+  ]);
 
   const handleDownload = useCallback(() => {
     if (!backupCodes.length) {
@@ -183,6 +201,8 @@ const TwoFactorAuthentication: React.FC = () => {
 
       disable2FAMutate(payload, {
         onSuccess: () => {
+          // FORK: Pendo track event.
+          pendo.track('two_factor_disabled', { verifiedWithBackupCode: useBackup });
           showToast({ message: localize('com_ui_2fa_disabled') });
           setDialogOpen(false);
           setUser(

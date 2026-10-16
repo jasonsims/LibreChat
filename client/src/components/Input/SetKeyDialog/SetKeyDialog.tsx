@@ -27,6 +27,7 @@ import BedrockConfig from './BedrockConfig';
 import GoogleConfig from './GoogleConfig';
 import OpenAIConfig from './OpenAIConfig';
 import OtherConfig from './OtherConfig';
+import { pendo } from '~/lib/pendo';
 import HelpText from './HelpText';
 import { logger } from '~/utils';
 
@@ -76,6 +77,8 @@ const RevokeKeysButton = ({
   const revokeKeysMutation = useRevokeAllUserKeysMutation();
 
   const handleSuccess = () => {
+    // FORK: Pendo track event.
+    pendo.track('endpoint_api_key_revoked', { scope: 'single', endpoint });
     showToast({
       message: localize('com_ui_revoke_key_success'),
       status: NotificationSeverity.SUCCESS,

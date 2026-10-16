@@ -8,6 +8,7 @@ import type { TRequestPasswordReset, TRequestPasswordResetResponse } from 'libre
 import type { FC } from 'react';
 import type { TLoginLayoutContext } from '~/common';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 const BodyTextWrapper: FC<{ children: ReactNode }> = ({ children }) => {
   return (
@@ -53,6 +54,11 @@ function RequestPasswordReset() {
   const onSubmit = (data: TRequestPasswordReset) => {
     requestPasswordReset.mutate(data, {
       onSuccess: (data: TRequestPasswordResetResponse) => {
+        // FORK: Pendo track event. Whether a link came back, never the link.
+        pendo.track('password_reset_requested', {
+          emailEnabled: startupConfig?.emailEnabled === true,
+          linkReturnedDirectly: !!data.link,
+        });
         if (data.link && !startupConfig?.emailEnabled) {
           setHeaderText('com_auth_reset_password');
           setBodyText(

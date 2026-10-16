@@ -9,6 +9,11 @@ import VirtualizedAgentGrid from './VirtualizedAgentGrid';
 import { DEFAULT_SORT_OPTION } from './SortDropdown';
 import GridSkeleton from './GridSkeleton';
 import ErrorDisplay from './ErrorDisplay';
+import { pendo } from '~/lib/pendo';
+
+/** FORK: the last query scope reported to Pendo. Module scope, so a remount or a further page
+ *  of the same search is not reported again. */
+let lastTrackedMarketplaceScope: string | null = null;
 
 interface AgentGridProps {
   category: string;
@@ -108,6 +113,32 @@ const AgentGrid: React.FC<AgentGridProps> = ({
   const visibleAgents = isPreviousData ? [] : currentAgents;
   const hasData = visibleAgents.length > 0;
   const scopeKey = useMemo(() => JSON.stringify(queryParams), [queryParams]);
+  useEffect(() => {
+    if (isLoading || isPreviousData || error != null || scopeKey === lastTrackedMarketplaceScope) {
+      return;
+    }
+    lastTrackedMarketplaceScope = scopeKey;
+    // FORK: Pendo track event, once the scope's first page has settled. Zero results is a gap.
+    pendo.track('agent_marketplace_searched', {
+      resultsCount: visibleAgents.length,
+      hasNextPage: hasNextPage === true,
+      category,
+      sort: queryParams.sort,
+      mineOnly: mine === 1,
+      searchQuery: searchQuery || undefined,
+    });
+  }, [
+    scopeKey,
+    isLoading,
+    isPreviousData,
+    error,
+    visibleAgents.length,
+    hasNextPage,
+    category,
+    queryParams.sort,
+    mine,
+    searchQuery,
+  ]);
   /**
    * react-query drops `error` for the duration of a retry, so rendering straight off it
    * would swap the error state for a skeleton on every attempt — remounting the card and

@@ -24,6 +24,7 @@ import {
 import type { TChatProject } from 'librechat-data-provider';
 import { useCreateProjectMutation, useGetStartupConfig } from '~/data-provider';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 type ProjectCreateDialogProps = {
   open: boolean;
@@ -83,6 +84,12 @@ export default function ProjectCreateDialog({
       const project = await createProject.mutateAsync({
         name: trimmedName,
         ...(trimmedDescription ? { description: trimmedDescription } : {}),
+      });
+      // FORK: Pendo track event.
+      pendo.track('project_created', {
+        nameLength: trimmedName.length,
+        hasDescription: !!trimmedDescription,
+        projectId: project._id,
       });
       resetForm();
       onOpenChange(false);

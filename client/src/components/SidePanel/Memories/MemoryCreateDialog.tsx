@@ -14,6 +14,7 @@ import {
 import { getMemoryKeyError, getMemoryValueError, getMemoryApiErrorMessage } from '~/utils/memory';
 import { useCreateMemoryMutation, useMemoriesQuery } from '~/data-provider';
 import { useLocalize, useHasAccess } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 interface MemoryCreateDialogProps {
   open: boolean;
@@ -39,7 +40,16 @@ export default function MemoryCreateDialog({
   const { data: memData } = useMemoriesQuery();
 
   const { mutate: createMemory, isLoading } = useCreateMemoryMutation({
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // FORK: Pendo track event. Lengths only, never the key or value.
+      pendo.track('memory_created', {
+        scope: variables?.agentId ? 'agent' : 'personal',
+        tokenCount: data?.memory?.tokenCount,
+        keyLength: variables?.key.length,
+        valueLength: variables?.value.length,
+        totalMemoryCount: (memData?.memories.length ?? 0) + 1,
+        usagePercentage: memData?.usagePercentage,
+      });
       showToast({
         message: localize('com_ui_memory_created'),
         status: 'success',

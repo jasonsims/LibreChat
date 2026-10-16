@@ -9,6 +9,7 @@ import {
   useGetStartupConfig,
 } from '~/data-provider';
 import { useAuthContext, useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import { logger } from '~/utils';
 
 const EMPTY_STATES: TSkillStatesResponse = {};
@@ -204,6 +205,16 @@ export default function useSkillActiveState() {
       } else {
         next[skill._id] = nextValue;
       }
+      // FORK: Pendo track event.
+      pendo.track('skill_toggled', {
+        active: nextValue,
+        skillSource:
+          (skill.source === 'deployment' && 'deployment') ||
+          (skill.author === userId && 'owned') ||
+          'shared',
+        isDefaultState: nextValue === defaultValue,
+        skillId: skill._id,
+      });
       queue.pending = next;
       if (!queue.inFlight) {
         flush();

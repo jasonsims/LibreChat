@@ -9,6 +9,7 @@ import type {
 import type { QueryClient } from '@tanstack/react-query';
 import { invalidateRecentFiles } from '~/utils/files';
 import { handleMemoryArtifact } from '~/utils/memory';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 /** Identity of a re-emitted web-search snapshot: its tool call, turn, agent,
@@ -30,10 +31,14 @@ const searchSnapshotKeyOf = (attachment: TAttachment): string | undefined => {
   return `${Tools.web_search}:${agentId}:${toolCallId}:${turn ?? 0}:${stepId}`;
 };
 
+/** FORK: memory writes already reported to Pendo. The final frame replays a turn's attachments
+ *  through this handler after they streamed live, so each write is reported once. */
+const trackedMemoryWrites = new Set<string>();
+
 export default function useAttachmentHandler(queryClient?: QueryClient) {
   const setAttachmentsMap = useSetRecoilState(store.messageAttachmentsMap);
 
-  return ({ data }: { data: TAttachment; submission: EventSubmission }) => {
+  return ({ data, submission }: { data: TAttachment; submission: EventSubmission }) => {
     const { messageId } = data;
     const fileId = (data as Partial<TFile>).file_id;
 
@@ -61,6 +66,24 @@ export default function useAttachmentHandler(queryClient?: QueryClient) {
 
     if (queryClient && data.type === Tools.memory && data[Tools.memory]) {
       const memoryArtifact = data[Tools.memory];
+      // FORK: Pendo track event, once per write. Never the memory's key or value.
+      const writeKey = [
+        submission.clientRequestId ?? messageId,
+        data.toolCallId,
+        memoryArtifact.key,
+        memoryArtifact.type,
+      ].join(':');
+      if (!trackedMemoryWrites.has(writeKey)) {
+        trackedMemoryWrites.add(writeKey);
+        pendo.track('ai_memory_updated', {
+          memoryAction: memoryArtifact.type,
+          scope: memoryArtifact.agentId ? 'agent' : 'personal',
+          tokenCount: memoryArtifact.tokenCount,
+          agentId: memoryArtifact.agentId,
+          messageId,
+          conversationId: submission.conversation?.conversationId,
+        });
+      }
 
       queryClient.setQueryData([QueryKeys.memories], (oldData: MemoriesResponse | undefined) => {
         if (!oldData) {

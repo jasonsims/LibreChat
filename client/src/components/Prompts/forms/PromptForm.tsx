@@ -37,6 +37,7 @@ import PromptName from '../fields/PromptName';
 import { cn, findPromptGroup } from '~/utils';
 import { PromptsEditorMode } from '~/common';
 import Command from '../fields/Command';
+import { pendo } from '~/lib/pendo';
 import store from '~/store';
 
 interface VersionsPanelProps {
@@ -260,6 +261,14 @@ const PromptForm = ({ promptId: promptIdProp }: { promptId?: string }) => {
       );
     },
     onSuccess(data) {
+      // FORK: Pendo track event.
+      pendo.track('prompt_version_saved', {
+        autoMadeProduction: alwaysMakeProd,
+        promptLength: data.prompt.prompt.length,
+        category: group?.category,
+        promptGroupId: data.prompt.groupId,
+        promptId: data.prompt._id,
+      });
       if (alwaysMakeProd && data.prompt._id != null && data.prompt._id && data.prompt.groupId) {
         makeProductionMutation.mutate({
           id: data.prompt._id,

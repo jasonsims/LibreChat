@@ -5,6 +5,7 @@ import { useConversationTagMutation } from '~/data-provider';
 import { NotificationSeverity } from '~/common';
 import BookmarkForm from './BookmarkForm';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import { logger } from '~/utils';
 
 type BookmarkEditDialogProps = {
@@ -39,6 +40,14 @@ const BookmarkEditDialog = ({
     tag: bookmark?.tag,
     options: {
       onSuccess: (_data, vars) => {
+        // FORK: Pendo track event.
+        pendo.track('bookmark_saved', {
+          mode: bookmark ? 'update' : 'create',
+          tag: _data?.tag,
+          hasDescription: !!_data?.description,
+          addedToConversation: vars?.addToConversation === true,
+          context,
+        });
         showToast({
           message: bookmark
             ? localize('com_ui_bookmarks_update_success')

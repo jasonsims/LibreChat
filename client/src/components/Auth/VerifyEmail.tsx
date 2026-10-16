@@ -9,6 +9,7 @@ import {
 } from '~/data-provider';
 import { getResponseErrorCode } from '~/utils';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 
 function RequestPasswordReset() {
   const navigate = useNavigate();
@@ -40,11 +41,15 @@ function RequestPasswordReset() {
 
   const verifyEmailMutation = useVerifyEmailMutation({
     onSuccess: () => {
+      // FORK: Pendo track event.
+      pendo.track('email_verified', { verificationType: 'signup', outcome: 'success' });
       setHeaderText(localize('com_auth_email_verification_success') + ' 🎉');
       setVerificationStatus(true);
       countdownRedirect();
     },
     onError: (_error: unknown) => {
+      // FORK: Pendo track event.
+      pendo.track('email_verified', { verificationType: 'signup', outcome: 'failed' });
       setHeaderText(localize('com_auth_email_verification_failed') + ' 😢');
       setShowResendLink(true);
       setVerificationStatus(true);
@@ -53,12 +58,20 @@ function RequestPasswordReset() {
 
   const confirmEmailChangeMutation = useConfirmEmailChangeMutation({
     onSuccess: () => {
+      // FORK: Pendo track event.
+      pendo.track('email_verified', { verificationType: 'email_change', outcome: 'success' });
       setHeaderText(localize('com_auth_email_change_success') + ' 🎉');
       setVerificationStatus(true);
       countdownRedirect();
     },
     onError: (error) => {
       const code = getResponseErrorCode<EmailChangeErrorCode>(error);
+      // FORK: Pendo track event.
+      pendo.track('email_verified', {
+        verificationType: 'email_change',
+        outcome: 'failed',
+        errorCode: code,
+      });
       const messageKey =
         code === 'email_in_use'
           ? 'com_ui_email_change_error_in_use'

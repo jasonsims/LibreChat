@@ -8,6 +8,7 @@ import { useBranchMessageMutation } from '~/data-provider/Messages';
 import MessageIcon from '~/components/Share/MessageIcon';
 import { useAgentsMapContext } from '~/Providers';
 import { useLocalize } from '~/hooks';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 
 type SiblingHeaderProps = {
@@ -39,7 +40,16 @@ export default function SiblingHeader({
   const { showToast } = useToastContext();
 
   const branchMessage = useBranchMessageMutation(conversationId ?? null, {
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      // FORK: Pendo track event. Shows which agent or model wins a side-by-side comparison.
+      pendo.track('parallel_response_branched', {
+        agentId: stripAgentIdSuffix(variables?.agentId ?? ''),
+        endpoint: displayEndpoint,
+        model: displayModel,
+        isSavedAgent: agent != null,
+        conversationId,
+        messageId: variables?.messageId,
+      });
       showToast({
         message: localize('com_ui_branch_created'),
         status: 'success',

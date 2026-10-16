@@ -33,6 +33,7 @@ import UnifiedPeopleSearch from './PeoplePicker/UnifiedPeopleSearch';
 import PeoplePickerAdminSettings from './PeoplePickerAdminSettings';
 import PublicSharingToggle from './PublicSharingToggle';
 import { SelectedPrincipalsList } from './PeoplePicker';
+import { pendo } from '~/lib/pendo';
 import { cn } from '~/utils';
 
 export default function GenericGrantAccessDialog({
@@ -205,6 +206,17 @@ export default function GenericGrantAccessDialog({
           ...(sendPublicUpdate ? { public: isPublic } : {}),
           ...(sendPublicUpdate && isPublic ? { publicAccessRoleId: publicRole } : {}),
         },
+      });
+      // FORK: Pendo track event.
+      pendo.track('resource_permissions_updated', {
+        resourceType,
+        grantedOrChangedCount: updated.length,
+        removedCount: removed.length,
+        isPublic,
+        publicAccessRoleId: isPublic ? publicRole : undefined,
+        publicChanged,
+        totalShares: allShares.length,
+        resourceId: resourceDbId,
       });
 
       if (onGrantAccess) {

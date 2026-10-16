@@ -31,6 +31,7 @@ import DescriptionWords from './DescriptionWords';
 import { cn, renderAgentAvatar } from '~/utils';
 import ResetApprovals from './ResetApprovals';
 import AgentCategoryBadge from './Category';
+import { pendo } from '~/lib/pendo';
 import CopyLink from './CopyLink';
 
 interface AgentDetailContentProps {
@@ -107,6 +108,14 @@ const AgentDetailContent: React.FC<AgentDetailContentProps> = ({
     if (prompt) {
       params.set('prompt', prompt);
     }
+    // FORK: Pendo track event. Whether a starter was used, never the starter's text.
+    pendo.track('agent_chat_started_from_marketplace', {
+      usedConversationStarter: !!prompt,
+      isFavorite,
+      category: agent.category,
+      agentName: agent.name,
+      agent_id: agent.id,
+    });
     /* The chat route initializes from these query params through `useQueryParams`, which
        keeps added conversations and leaves the new-chat message cache alone. Starting an
        agent from the marketplace is a new conversation with that agent, not another column
