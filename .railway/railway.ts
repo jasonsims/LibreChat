@@ -1,13 +1,24 @@
 // FORK: Railway infrastructure for this fork's test site. See "Deployment" in FORK.md.
-import { defineRailway, github, mongo, preserve, project, service } from 'railway/iac';
+import { defineRailway, github, mongo, preserve, project, service, volume } from 'railway/iac';
 
 export default defineRailway(() => {
   const db = mongo('mongo');
+  // Railway creates the volume with the database. Mongo refuses to build indexes with under 500 MB
+  // free, and LibreChat exits at startup when they fail, so the 500 MB default is too small.
+  const dbVolume = volume('mongo-volume', {
+    sizeMB: 5000,
+    region: 'us-west2',
+    allowOnlineResize: true,
+  });
 
   const librechat = service('librechat', {
     source: github('jasonsims/LibreChat', { branch: 'deploy' }),
     build: { builder: 'DOCKERFILE', dockerfilePath: 'Dockerfile' },
-    deploy: { restartPolicyType: 'ON_FAILURE', restartPolicyMaxRetries: 5 },
+    // Railway's defaults (restart on failure, never sleep) are stored as unset, so they aren't
+    // written here. Keep sleep off: a cold start stalls each persona's first page load.
+    deploy: { restartPolicyMaxRetries: 5 },
+    // Exactly one replica: LibreChat's job and stream stores are in memory (no Redis).
+    regions: { 'us-west2': 1 },
     healthcheck: '/health',
     healthcheckTimeout: 300,
     env: {
@@ -29,6 +40,8 @@ export default defineRailway(() => {
 
       // No Meilisearch service, so conversation search stays off.
       SEARCH: 'false',
+      // Without Redis the agent scheduler only starts when told this is the sole replica (see regions).
+      SCHEDULES_SINGLE_PROCESS: 'true',
 
       ANTHROPIC_API_KEY: preserve(),
       ANTHROPIC_MODELS: 'claude-haiku-5-5',
@@ -41,5 +54,5 @@ export default defineRailway(() => {
     },
   });
 
-  return project('librechat', { resources: [librechat, db] });
+  return project('librechat', { resources: [librechat, db, dbVolume] });
 });

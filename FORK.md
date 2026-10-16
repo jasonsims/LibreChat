@@ -78,10 +78,12 @@ Upstream's `.nvmrc` (Node `24.16.0`, the current LTS line and the version the Do
 
 ## Deployment
 
-- Host: Railway, project `librechat`, defined in `.railway/railway.ts` (Railway infrastructure as code; `railway.json` config-as-code is deprecated and stops being read on 2026-12-01).
+- Host: Railway, project `librechat` in the Hobby workspace, defined in `.railway/railway.ts` (Railway infrastructure as code; `railway.json` config-as-code is deprecated and stops being read on 2026-12-01).
+- Needs a paid plan. The Free and Trial plans cap a service at about 0.5 GB of memory (LibreChat peaks near that while idle) and a volume at 500 MB, which can't be resized. With that little disk Mongo refuses to build indexes, and LibreChat exits at startup.
+- App sleeping is off for both services, so bots don't wait on a cold start.
 - Services:
   - `librechat`: built from this repo's `Dockerfile` on branch `deploy`. Health check `GET /health`. `PORT` is pinned to `3080` (the Dockerfile's `EXPOSE`), and the image sets `HOST=0.0.0.0`.
-  - `mongo`: Railway's MongoDB 8 with a volume at `/data/db`. `MONGO_URI` references its `MONGO_URL`, which has no database name, so data lives in Mongo's default `test` database.
+  - `mongo`: Railway's MongoDB 8 with the 5 GB volume `mongo-volume` at `/data/db`. Mongo needs at least 500 MB free on it to build indexes. Volumes can grow online but never shrink. `MONGO_URI` references its `MONGO_URL`, which has no database name, so data lives in Mongo's default `test` database.
 - Not deployed: Meilisearch (`SEARCH=false`, so conversation search is off), the RAG API (file chat is off), Redis (single instance, in-memory caches).
 - AI provider: Anthropic only, restricted to `claude-haiku-5-5` (`ANTHROPIC_MODELS`) to keep bot traffic cheap. Other endpoints stay hidden because their keys are unset. The Agents endpoint is on by default and uses the same key.
 - `librechat.yaml` is not used. LibreChat logs that it's missing and runs on defaults. To add one, commit it under a fork-owned path and set `CONFIG_PATH`.
@@ -91,7 +93,7 @@ Upstream's `.nvmrc` (Node `24.16.0`, the current LTS line and the version the Do
 ```bash
 brew install railway        # CLI 5.42.1 or newer runs the IaC engine
 railway login
-cd .railway && npm install && cd ..
+cd .railway && npm ci && cd ..
 railway init --name librechat   # or `railway link` to an existing project
 railway config plan
 railway config apply
