@@ -1,6 +1,7 @@
 import './polyfills/storage';
 import './polyfills/regeneratorRuntime';
 import { createRoot } from 'react-dom/client';
+import { initializePendo } from './lib/pendo/agent';
 import { initializeI18n } from './locales/i18n';
 import App from './App';
 import '@librechat/client/style.css';
@@ -9,6 +10,9 @@ import './mobile.css';
 import { ApiErrorBoundaryProvider } from './hooks/ApiErrorBoundaryContext';
 import 'katex/dist/katex.min.css';
 import 'katex/dist/contrib/copy-tex.js';
+
+// FORK: Novus by Pendo. Initialize once per page load, before anything renders; see FORK.md.
+initializePendo();
 
 const container = document.getElementById('root');
 const root = createRoot(container);
